@@ -1,0 +1,399 @@
+/**
+ * SCPO Phase 3 Visual Admin Builder Styles
+ */
+.scpo-admin-wrap {
+	margin-top: 15px;
+	max-width: 1400px;
+}
+
+/* Three-part layout / Tab bar */
+.scpo-builder-tabs {
+	display: flex;
+	gap: 8px;
+	margin: 15px 0 20px 0;
+	border-bottom: 1px solid #ccd0d4;
+	padding-bottom: 0;
+}
+
+.scpo-tab-btn {
+	padding: 9px 18px;
+	background: #f0f0f1;
+	border: 1px solid #ccd0d4;
+	border-bottom: none;
+	border-radius: 4px 4px 0 0;
+	cursor: pointer;
+	font-weight: 600;
+	font-size: 13px;
+	color: #50575e;
+	margin-bottom: -1px;
+}
+
+.scpo-tab-btn:hover {
+	background: #fff;
+	color: #2271b1;
+}
+
+.scpo-tab-btn.active {
+	background: #fff;
+	border-top: 2px solid #2271b1;
+	border-bottom: 1px solid #fff;
+	color: #1d2327;
+}
+
+.scpo-editor-layout {
+	display: flex;
+	gap: 20px;
+	margin-top: 15px;
+	align-items: flex-start;
+}
+
+.scpo-editor-main {
+	flex: 1 1 70%;
+	min-width: 0;
+}
+
+.scpo-editor-sidebar {
+	flex: 0 0 320px;
+}
+
+.scpo-card {
+	background: #fff;
+	border: 1px solid #ccd0d4;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	padding: 18px 20px;
+	margin-bottom: 20px;
+	border-radius: 4px;
+}
+
+.scpo-card h2, .scpo-card h3 {
+	margin-top: 0;
+	padding-bottom: 10px;
+	border-bottom: 1px solid #eee;
+	color: #1d2327;
+}
+
+/* Empty State / 3-Step Guide */
+.scpo-empty-state {
+	text-align: center;
+	padding: 40px 20px;
+	background: #fdfdfd;
+	border: 2px dashed #c3c4c7;
+	border-radius: 6px;
+	margin-bottom: 20px;
+}
+
+.scpo-empty-state-icon {
+	font-size: 42px;
+	margin-bottom: 10px;
+	line-height: 1;
+}
+
+.scpo-empty-state h3 {
+	margin: 0 0 8px 0;
+	border: none;
+	font-size: 18px;
+}
+
+.scpo-empty-state p {
+	color: #646970;
+	margin: 0 auto 20px auto;
+	max-width: 500px;
+	font-size: 13px;
+}
+
+.scpo-guide-steps {
+	display: flex;
+	justify-content: center;
+	gap: 16px;
+	margin-bottom: 24px;
+	text-align: left;
+}
+
+.scpo-step-box {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	padding: 12px 14px;
+	width: 160px;
+}
+
+.scpo-step-num {
+	display: inline-block;
+	background: #2271b1;
+	color: #fff;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	text-align: center;
+	line-height: 20px;
+	font-size: 11px;
+	font-weight: 700;
+	margin-bottom: 6px;
+}
+
+.scpo-step-title {
+	font-weight: 600;
+	font-size: 12px;
+	color: #1d2327;
+}
+
+.scpo-step-desc {
+	font-size: 11px;
+	color: #646970;
+	margin: 4px 0 0 0;
+}
+
+/* Section Canvas */
+.scpo-sections-canvas {
+	margin-bottom: 20px;
+}
+
+.scpo-section-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	margin-bottom: 16px;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+	transition: border-color 0.15s ease;
+}
+
+.scpo-section-card.selected {
+	border-color: #2271b1;
+	box-shadow: 0 0 0 1px #2271b1;
+}
+
+.scpo-section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 14px;
+	background: #f6f7f7;
+	border-bottom: 1px solid #dcdcde;
+	border-radius: 4px 4px 0 0;
+}
+
+.scpo-section-drag-handle {
+	cursor: grab;
+	color: #8c8f94;
+	font-size: 16px;
+	margin-right: 8px;
+	user-select: none;
+}
+
+.scpo-section-title-wrap {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.scpo-sec-title-input {
+	font-weight: 600;
+	font-size: 14px;
+	color: #1d2327;
+	border: 1px solid transparent;
+	background: transparent;
+	padding: 2px 6px;
+	border-radius: 3px;
+	width: 250px;
+}
+
+.scpo-sec-title-input:hover, .scpo-sec-title-input:focus {
+	border-color: #8c8f94;
+	background: #fff;
+}
+
+.scpo-section-body {
+	padding: 14px;
+}
+
+.scpo-fields-list {
+	min-height: 40px;
+}
+
+.scpo-field-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 12px;
+	background: #fdfdfd;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	margin-bottom: 8px;
+	transition: all 0.15s ease;
+}
+
+.scpo-field-item:hover {
+	border-color: #8c8f94;
+}
+
+.scpo-field-item.selected {
+	border-color: #2271b1;
+	background: #f0f6fc;
+}
+
+/* Drag and Drop States */
+.scpo-section-card.is-dragging,
+.scpo-field-item.is-dragging {
+	opacity: 0.45;
+	border-style: dashed !important;
+	border-color: #2271b1 !important;
+}
+
+.scpo-section-card.drop-target,
+.scpo-field-item.drop-target {
+	border-color: #2271b1 !important;
+	background: #f0f6fc !important;
+	box-shadow: 0 0 0 2px #2271b1 !important;
+}
+
+.scpo-field-meta {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex: 1;
+}
+
+.scpo-field-drag-handle {
+	cursor: grab;
+	color: #8c8f94;
+	font-size: 14px;
+}
+
+.scpo-field-badge {
+	font-size: 10px;
+	text-transform: uppercase;
+	padding: 2px 6px;
+	background: #e2e3e5;
+	color: #383d41;
+	border-radius: 3px;
+	font-weight: 600;
+}
+
+.scpo-field-title {
+	font-weight: 600;
+	color: #1d2327;
+	font-size: 13px;
+}
+
+.scpo-field-pricing-tag {
+	font-size: 11px;
+	color: #2271b1;
+	background: #f0f6fc;
+	padding: 2px 6px;
+	border-radius: 3px;
+}
+
+.scpo-field-cond-indicator {
+	font-size: 11px;
+	color: #d63638;
+	background: #fcf0f1;
+	padding: 2px 6px;
+	border-radius: 3px;
+}
+
+.scpo-field-actions, .scpo-section-actions {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+/* Contextual Settings Panel (Right Drawer/Panel) */
+.scpo-panel-group {
+	margin-bottom: 16px;
+}
+
+.scpo-panel-group label {
+	display: block;
+	font-weight: 600;
+	font-size: 12px;
+	margin-bottom: 4px;
+	color: #1d2327;
+}
+
+.scpo-panel-group input[type="text"],
+.scpo-panel-group input[type="number"],
+.scpo-panel-group select,
+.scpo-panel-group textarea {
+	width: 100%;
+	font-size: 13px;
+}
+
+.scpo-accordion-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 8px 10px;
+	background: #f0f0f1;
+	border: 1px solid #dcdcde;
+	border-radius: 3px;
+	cursor: pointer;
+	font-weight: 600;
+	font-size: 12px;
+	margin-top: 10px;
+}
+
+.scpo-accordion-body {
+	padding: 10px;
+	border: 1px solid #dcdcde;
+	border-top: none;
+	background: #fff;
+	margin-bottom: 10px;
+}
+
+/* Choice Table */
+.scpo-choices-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+	margin-top: 6px;
+}
+
+.scpo-choices-table th {
+	text-align: left;
+	padding: 6px 8px;
+	background: #f6f7f7;
+	border-bottom: 1px solid #dcdcde;
+}
+
+.scpo-choices-table td {
+	padding: 6px 4px;
+	border-bottom: 1px solid #f0f0f1;
+}
+
+.scpo-choices-table input {
+	width: 100%;
+	font-size: 12px;
+	padding: 4px 6px;
+}
+
+/* Conditional Rules UI */
+.scpo-rule-row {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	margin-bottom: 8px;
+}
+
+.scpo-rule-row select, .scpo-rule-row input {
+	font-size: 11px !important;
+	padding: 3px 6px !important;
+}
+
+/* Live Preview Mockup Box */
+.scpo-preview-card {
+	border: 2px solid #2271b1;
+	background: #fafafa;
+}
+
+.scpo-preview-banner {
+	background: #2271b1;
+	color: #fff;
+	padding: 6px 12px;
+	font-size: 11px;
+	font-weight: 600;
+	border-radius: 2px 2px 0 0;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	margin: -18px -20px 14px -20px;
+}

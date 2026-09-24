@@ -1,0 +1,6 @@
+{
+  "name": "WooCommerce Product Options Plugin Builder",
+  "description": "Production-grade independent WordPress & WooCommerce Product Options plugin builder and verification harness.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
