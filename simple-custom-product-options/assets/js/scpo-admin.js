@@ -1576,9 +1576,10 @@
 			wrapper.setAttribute('data-base-price', '100.00');
 			wrapper.setAttribute('style', 'background:#fff; border:1px solid #dcdcde;');
 
-			schema.sections.forEach(function(sec) {
-				var s = document.createElement('div');
-				var secMode = sec.selection_mode || 'multiple';
+				schema.sections.forEach(function(sec) {
+					var s = document.createElement('div');
+					var secMode = sec.selection_mode || 'multiple';
+					var singleGroupAttr = secMode === 'single' ? ' data-scpo-single-choice-group="' + escapeHtml(sec.id) + '"' : '';
 				s.className = 'scpo-section scpo-section-mode-' + secMode;
 				s.setAttribute('data-selection-mode', secMode);
 				if (sec.title) {
@@ -1641,11 +1642,11 @@
 							if (fld.options) {
 								fld.options.forEach(function(opt) {
 									var oPrice = opt.price > 0 ? ' (+€' + parseFloat(opt.price).toFixed(2) + ')' : '';
-									row.innerHTML += '<label><input type="radio" name="' + fld.id + '" value="' + opt.id + '"> ' + escapeHtml(opt.label) + oPrice + '</label><br>';
+									row.innerHTML += '<label><input type="radio" name="' + fld.id + '" value="' + opt.id + '"' + singleGroupAttr + '> ' + escapeHtml(opt.label) + oPrice + '</label><br>';
 								});
 							}
 						} else if (fld.type === 'checkbox') {
-							row.innerHTML += '<label><input type="checkbox" value="yes"> ' + escapeHtml(fld.label) + (fld.required ? ' *' : '') + pTag + '</label>';
+							row.innerHTML += '<label><input type="checkbox" value="yes"' + singleGroupAttr + '> ' + escapeHtml(fld.label) + (fld.required ? ' *' : '') + pTag + '</label>';
 						} else if (fld.type === 'date') {
 							row.innerHTML += '<input type="date" class="scpo-input">';
 						} else if (fld.type === 'multiselect') {
@@ -1672,7 +1673,7 @@
 
 									imgGrid +=
 										'<label style="display:flex; flex-direction:column; border:2px solid #e2e8f0; border-radius:6px; overflow:hidden; background:#fff; cursor:pointer; text-align:center; padding:6px; transition:border-color 0.2s;">' +
-										'<input type="' + inputType + '" name="' + inputName + '" value="' + opt.id + '" style="margin:0 auto 4px auto;">' +
+										'<input type="' + inputType + '" name="' + inputName + '" value="' + opt.id + '"' + singleGroupAttr + ' style="margin:0 auto 4px auto;">' +
 										imgBox +
 										'<span style="font-size:12px; font-weight:600; margin-top:4px; color:#1e293b;">' + escapeHtml(opt.label) + '</span>' +
 										oPrice +
@@ -1690,6 +1691,14 @@
 			});
 
 			preview.appendChild(wrapper);
+			wrapper.addEventListener('change', function(e) {
+				var input = e.target;
+				if (!input.matches('input[data-scpo-single-choice-group]') || !input.checked) return;
+				var groupId = input.getAttribute('data-scpo-single-choice-group');
+				wrapper.querySelectorAll('input[data-scpo-single-choice-group]').forEach(function(other) {
+					if (other !== input && other.getAttribute('data-scpo-single-choice-group') === groupId) other.checked = false;
+				});
+			});
 		}
 
 		// Initial Canvas Rendering

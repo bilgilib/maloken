@@ -73,21 +73,22 @@ class Price_Calculator {
 					$chk_val = isset( $submitted_fields[ $chk_id ] ) ? $submitted_fields[ $chk_id ] : null;
 					$is_field_selected = false;
 
-					if ( is_array( $chk_val ) ) {
-						$filt = array_filter( $chk_val, function( $v ) { return '' !== trim( (string) $v ); } );
-						if ( ! empty( $filt ) ) {
-							$is_field_selected = true;
-						}
-					} elseif ( ! is_null( $chk_val ) && '' !== trim( (string) $chk_val ) ) {
-						$chk_type = isset( $chk_fld['type'] ) ? $chk_fld['type'] : 'text';
-						if ( 'checkbox' === $chk_type ) {
-							$unchecked_val = isset( $chk_fld['unchecked_value'] ) ? $chk_fld['unchecked_value'] : 'no';
-							if ( (string) $chk_val !== (string) $unchecked_val ) {
+					$chk_type = isset( $chk_fld['type'] ) ? $chk_fld['type'] : 'text';
+					if ( 'checkbox' === $chk_type ) {
+						$checked_val = isset( $chk_fld['checked_value'] ) ? (string) $chk_fld['checked_value'] : 'yes';
+						$values      = is_array( $chk_val ) ? $chk_val : array( $chk_val );
+						foreach ( $values as $value ) {
+							$value = strtolower( trim( (string) $value ) );
+							if ( $value === strtolower( $checked_val ) || in_array( $value, array( 'yes', 'on', '1', 'true' ), true ) ) {
 								$is_field_selected = true;
+								break;
 							}
-						} else {
-							$is_field_selected = true;
 						}
+					} elseif ( is_array( $chk_val ) ) {
+						$filt = array_filter( $chk_val, function( $v ) { return '' !== trim( (string) $v ); } );
+						$is_field_selected = ! empty( $filt );
+					} elseif ( ! is_null( $chk_val ) && '' !== trim( (string) $chk_val ) ) {
+						$is_field_selected = true;
 					}
 
 					if ( $is_field_selected ) {

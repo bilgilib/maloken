@@ -67,6 +67,10 @@ assert(calcCode.includes('raw_image_choices'), 'class-price-calculator.php suppo
 assert(rendererCode.includes('data-selection-mode'), 'class-frontend-renderer.php outputs data-selection-mode attribute on section');
 assert(rendererCode.includes('radiogroup') && rendererCode.includes('group'), 'class-frontend-renderer.php outputs accessible radiogroup/group roles');
 assert(rendererCode.includes('scpo-imageselect-') && rendererCode.includes('$input_type'), 'class-frontend-renderer.php supports radio and checkbox image choice rendering');
+assert(rendererCode.includes('data-scpo-single-choice-group'), 'Renderer marks single-choice inputs with a section group');
+assert(frontendJs.includes('data-scpo-single-choice-group') && !frontendJs.includes("$sec.find('input[type=\"checkbox\"]').not(this)"), 'Frontend single-choice enforcement is scoped to the section choice group');
+assert(adminJs.includes('data-scpo-single-choice-group') && adminJs.includes('wrapper.addEventListener'), 'Admin live preview enforces single choice across sibling fields');
+assert(calcCode.includes("in_array( $value, array( 'yes', 'on', '1', 'true' ), true )"), 'PHP validation recognizes checked checkbox values inside hidden-input arrays');
 
 // -------------------------------------------------------------
 // 2. SCHEMA COMPATIBILITY & NORMALIZATION EMULATION
@@ -135,15 +139,17 @@ function validateAndParseSubmission(submittedFields, schemaConfig) {
       for (const chkFld of section.fields) {
         const val = submittedFields[chkFld.id];
         let isSelected = false;
-        if (Array.isArray(val)) {
+        if (chkFld.type === 'checkbox') {
+          const checked = String(chkFld.checked_value || 'yes').toLowerCase();
+          const values = Array.isArray(val) ? val : [val];
+          isSelected = values.some(v => {
+            const normalized = String(v ?? '').trim().toLowerCase();
+            return normalized === checked || ['yes', 'on', '1', 'true'].includes(normalized);
+          });
+        } else if (Array.isArray(val)) {
           if (val.filter(v => String(v).trim() !== '').length > 0) isSelected = true;
         } else if (val !== undefined && val !== null && String(val).trim() !== '') {
-          if (chkFld.type === 'checkbox') {
-            const unchecked = chkFld.unchecked_value || 'no';
-            if (String(val) !== unchecked) isSelected = true;
-          } else {
-            isSelected = true;
-          }
+          isSelected = true;
         }
         if (isSelected) activeSelectedFields++;
       }
@@ -282,6 +288,14 @@ const submissionSingleAccept = {
 const resSingleAccept = validateAndParseSubmission(submissionSingleAccept, singleChoiceSchema);
 assert(!resSingleAccept.is_error, 'PHP Engine: Single choice section with 1 option selected is ACCEPTED');
 assert(resSingleAccept.unit_addon_sum === 5, 'PHP Engine: Applies €5.00 price delta for selected single choice');
+
+const submissionSingleHiddenInputShape = {
+  fld_color_a: ['no'],
+  fld_color_b: ['no', 'yes']
+};
+const resSingleHiddenInputShape = validateAndParseSubmission(submissionSingleHiddenInputShape, singleChoiceSchema);
+assert(!resSingleHiddenInputShape.is_error, 'PHP Engine: Hidden checkbox fallback values do not count as selected');
+assert(resSingleHiddenInputShape.unit_addon_sum === 5, 'PHP Engine: Hidden plus checked checkbox submission preserves the selected price');
 
 // -------------------------------------------------------------
 // TEST CASE 2: Single Reject (Single choice section with 2 sibling options selected)

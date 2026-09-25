@@ -255,10 +255,13 @@
 
 		// Single-choice section enforcement on frontend:
 		// If a section is in single-choice mode, selecting a choice deselects other sibling choices in the section
-		$wrapper.on('change', '.scpo-section[data-selection-mode="single"] input[type="checkbox"]', function() {
+		$wrapper.on('change', '.scpo-section[data-selection-mode="single"] input[data-scpo-single-choice-group]', function() {
 			if ($(this).is(':checked')) {
 				var $sec = $(this).closest('.scpo-section');
-				$sec.find('input[type="checkbox"]').not(this).prop('checked', false);
+				var groupId = $(this).attr('data-scpo-single-choice-group');
+				$sec.find('input[data-scpo-single-choice-group]').filter(function() {
+					return $(this).attr('data-scpo-single-choice-group') === groupId;
+				}).not(this).prop('checked', false);
 				recalculateLivePrice();
 			}
 		});

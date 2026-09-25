@@ -424,13 +424,16 @@ class Frontend_Renderer {
 
 			case 'radio':
 				if ( ! empty( $field['options'] ) && is_array( $field['options'] ) ) {
+					$single_choice_group_attr = ( 'single' === ( isset( $section['selection_mode'] ) ? $section['selection_mode'] : 'multiple' ) )
+						? ' data-scpo-single-choice-group="' . esc_attr( $section['id'] ) . '"'
+						: '';
 					echo '<div class="scpo-radio-group">';
 					foreach ( $field['options'] as $opt ) {
 						$opt_price = isset( $opt['price'] ) ? (float) $opt['price'] : 0.0;
 						$opt_tag   = $opt_price > 0 ? ' (+' . wc_price( $opt_price ) . ')' : '';
 						$radio_id  = 'scpo_radio_' . esc_attr( $field_id ) . '_' . esc_attr( $opt['id'] );
 						echo '<label for="' . esc_attr( $radio_id ) . '" class="scpo-radio-label">';
-						echo '<input type="radio" id="' . esc_attr( $radio_id ) . '" name="' . esc_attr( $input_name ) . '" value="' . esc_attr( $opt['id'] ) . '" data-price="' . esc_attr( $opt_price ) . '"' . ( $required ? ' required' : '' ) . '> ';
+						echo '<input type="radio" id="' . esc_attr( $radio_id ) . '" name="' . esc_attr( $input_name ) . '" value="' . esc_attr( $opt['id'] ) . '" data-price="' . esc_attr( $opt_price ) . '"' . $single_choice_group_attr . ( $required ? ' required' : '' ) . '> ';
 						echo esc_html( $opt['label'] ) . $opt_tag; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 						echo '</label><br>';
 					}
@@ -443,10 +446,13 @@ class Frontend_Renderer {
 				$unchecked_val = isset( $field['unchecked_value'] ) ? $field['unchecked_value'] : 'no';
 				$check_price   = isset( $field['states'][ $checked_val ]['price_delta'] ) ? (float) $field['states'][ $checked_val ]['price_delta'] : $amount;
 				$check_tag     = $check_price > 0 ? ' (+' . wc_price( $check_price ) . ')' : '';
+				$legacy_single_group_attr = ( 'single' === ( isset( $section['selection_mode'] ) ? $section['selection_mode'] : 'multiple' ) )
+					? ' data-scpo-single-choice-group="' . esc_attr( $section['id'] ) . '"'
+					: '';
 
 				echo '<label for="scpo_input_' . esc_attr( $field_id ) . '" class="scpo-checkbox-label">';
 				echo '<input type="hidden" name="' . esc_attr( $input_name ) . '" value="' . esc_attr( $unchecked_val ) . '">';
-				echo '<input type="checkbox" id="scpo_input_' . esc_attr( $field_id ) . '" name="' . esc_attr( $input_name ) . '" value="' . esc_attr( $checked_val ) . '" data-price="' . esc_attr( $check_price ) . '"' . ( $required ? ' required' : '' ) . '> ';
+				echo '<input type="checkbox" id="scpo_input_' . esc_attr( $field_id ) . '" name="' . esc_attr( $input_name ) . '" value="' . esc_attr( $checked_val ) . '" data-price="' . esc_attr( $check_price ) . '"' . $legacy_single_group_attr . ( $required ? ' required' : '' ) . '> ';
 				echo esc_html( $label ) . $check_tag; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				if ( $required ) {
 					echo ' <span class="required" style="color: red;">*</span>';
@@ -483,6 +489,9 @@ class Frontend_Renderer {
 					$role_attr       = $is_multi ? 'group' : 'radiogroup';
 					$input_type      = $is_multi ? 'checkbox' : 'radio';
 					$input_name_attr = $is_multi ? 'scpo_fields[' . esc_attr( $field_id ) . '][]' : esc_attr( $input_name );
+					$single_choice_group_attr = ( ! $is_multi )
+						? ' data-scpo-single-choice-group="' . esc_attr( $section['id'] ) . '"'
+						: '';
 
 					echo '<div class="scpo-imageselect-grid" role="' . esc_attr( $role_attr ) . '" aria-label="' . esc_attr( $label ) . '">';
 					foreach ( $field['options'] as $opt ) {
@@ -503,7 +512,7 @@ class Frontend_Renderer {
 						$alt_text = ! empty( $opt['alt'] ) ? $opt['alt'] : ( ! empty( $opt['label'] ) ? $opt['label'] : '' );
 
 						echo '<label for="' . esc_attr( $card_id ) . '" class="scpo-image-choice-card" tabindex="0">';
-						echo '<input type="' . esc_attr( $input_type ) . '" id="' . esc_attr( $card_id ) . '" name="' . esc_attr( $input_name_attr ) . '" value="' . $opt_id . '" data-price="' . esc_attr( $opt_price ) . '" class="scpo-imageselect-' . esc_attr( $input_type ) . '"' . ( ( ! $is_multi && $required ) ? ' required' : '' ) . '>';
+						echo '<input type="' . esc_attr( $input_type ) . '" id="' . esc_attr( $card_id ) . '" name="' . esc_attr( $input_name_attr ) . '" value="' . $opt_id . '" data-price="' . esc_attr( $opt_price ) . '" class="scpo-imageselect-' . esc_attr( $input_type ) . '"' . $single_choice_group_attr . ( ( ! $is_multi && $required ) ? ' required' : '' ) . '>';
 						echo '<div class="scpo-image-choice-preview">';
 						if ( ! empty( $img_url ) ) {
 							echo '<img src="' . esc_url( $img_url ) . '" alt="' . esc_attr( $alt_text ) . '" class="scpo-image-thumb">';
