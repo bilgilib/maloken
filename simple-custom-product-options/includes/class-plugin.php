@@ -59,6 +59,9 @@ class Plugin {
 		// Register Custom Post Type.
 		add_action( 'init', array( 'SimpleCustomProductOptions\\Admin\\Option_Set_CPT', 'register' ) );
 
+		// Initialize Media Folder logical taxonomy and management.
+		new Admin\Media_Folder();
+
 		// Initialize Commerce (Cart, Checkout & Pricing) lifecycle.
 		new Commerce\Cart_Manager();
 

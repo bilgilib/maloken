@@ -70,11 +70,118 @@
 	box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
-.scpo-checkbox-label, .scpo-radio-label {
+.scpo-checkbox-label, .scpo-radio-label, .scpo-multiselect-label {
 	font-size: 0.9rem;
 	color: #334155;
 	cursor: pointer;
 	line-height: 1.6;
+}
+
+/* Multi-select group */
+.scpo-multiselect-group {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.scpo-multiselect-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.scpo-multiselect-input {
+	margin: 0;
+}
+
+/* Image Select Grid & Cards */
+.scpo-imageselect-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+	gap: 12px;
+	margin-top: 6px;
+}
+
+.scpo-image-choice-card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	background: #ffffff;
+	border: 2px solid #e2e8f0;
+	border-radius: 8px;
+	overflow: hidden;
+	cursor: pointer;
+	transition: all 0.15s ease-in-out;
+	outline: none;
+	user-select: none;
+}
+
+.scpo-image-choice-card:hover {
+	border-color: #94a3b8;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.scpo-image-choice-card:focus,
+.scpo-image-choice-card:focus-visible {
+	border-color: #3b82f6;
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.scpo-image-choice-card.is-selected {
+	border-color: #2563eb;
+	background-color: #eff6ff;
+	box-shadow: 0 0 0 1px #2563eb;
+}
+
+.scpo-imageselect-radio {
+	position: absolute;
+	opacity: 0;
+	width: 0;
+	height: 0;
+	pointer-events: none;
+}
+
+.scpo-image-choice-preview {
+	width: 100%;
+	height: 100px;
+	background: #f1f5f9;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+}
+
+.scpo-image-thumb {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+.scpo-image-placeholder {
+	font-size: 32px;
+	color: #94a3b8;
+}
+
+.scpo-image-choice-info {
+	padding: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	text-align: center;
+}
+
+.scpo-image-choice-label {
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: #1e293b;
+	line-height: 1.25;
+}
+
+.scpo-image-choice-price {
+	font-size: 0.8rem;
+	font-weight: 500;
+	color: #2563eb;
 }
 
 .scpo-price-summary-box {

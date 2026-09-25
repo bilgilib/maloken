@@ -16,11 +16,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Frontend_Renderer {
 
 	/**
+	 * Track rendered product IDs to prevent duplicate output.
+	 *
+	 * @var int[]
+	 */
+	protected static $rendered_products = array();
+
+	/**
 	 * Constructor. Hooks into single product display.
 	 */
 	public function __construct() {
 		// Output options before the Add to Cart button on single product page.
 		add_action( 'woocommerce_before_add_to_cart_button', array( $this, 'render_product_options' ), 25 );
+		// Decoupled fallback rendering when add-to-cart-button hook does not fire (e.g. stock=0 backorder/preorder).
+		add_action( 'woocommerce_single_product_summary', array( $this, 'render_product_options_fallback' ), 31 );
 		// Enqueue scripts/styles only when needed.
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
 		// Change Add to Cart button link on shop archive loops if product has required options.
@@ -40,23 +49,32 @@ class Frontend_Renderer {
 			return;
 		}
 
+		if ( ! $this->is_product_eligible( $product ) ) {
+			return;
+		}
+
 		$option_sets = Option_Set::get_active_for_product( $product->get_id() );
 		if ( empty( $option_sets ) ) {
 			return;
 		}
 
+		$css_file = SCPO_PLUGIN_DIR . 'assets/css/scpo-frontend.css';
+		$js_file  = SCPO_PLUGIN_DIR . 'assets/js/scpo-frontend.js';
+		$css_ver  = file_exists( $css_file ) ? (string) filemtime( $css_file ) : SCPO_VERSION;
+		$js_ver   = file_exists( $js_file ) ? (string) filemtime( $js_file ) : SCPO_VERSION;
+
 		wp_enqueue_style(
 			'scpo-frontend-style',
 			SCPO_PLUGIN_URL . 'assets/css/scpo-frontend.css',
 			array(),
-			SCPO_VERSION
+			$css_ver
 		);
 
 		wp_enqueue_script(
 			'scpo-frontend-script',
 			SCPO_PLUGIN_URL . 'assets/js/scpo-frontend.js',
 			array( 'jquery' ),
-			SCPO_VERSION,
+			$js_ver,
 			true
 		);
 
@@ -72,6 +90,68 @@ class Frontend_Renderer {
 				'decimals'        => wc_get_price_decimals(),
 			)
 		);
+	}
+
+	/**
+	 * Determine if a product is eligible to display custom options.
+	 *
+	 * Options must render when a product is purchasable, on backorder,
+	 * or preorder-capable, even when current stock quantity is zero.
+	 * Only hide options when the product truly cannot be purchased
+	 * and has no valid preorder/backorder path.
+	 *
+	 * @param \WC_Product|mixed $product Product instance.
+	 * @return bool
+	 */
+	public function is_product_eligible( $product ) {
+		if ( ! is_a( $product, 'WC_Product' ) ) {
+			return false;
+		}
+
+		$is_purchasable = $product->is_purchasable();
+		$can_backorder  = $product->backorders_allowed() || ( method_exists( $product, 'is_on_backorder' ) && $product->is_on_backorder() );
+		$can_preorder   = $this->is_preorder_capable( $product );
+
+		// Truly non-purchasable: if not purchasable AND no backorder or preorder capability, hide options.
+		if ( ! $is_purchasable && ! $can_backorder && ! $can_preorder ) {
+			return false;
+		}
+
+		// If out of stock, render if backorder or preorder or purchasable is allowed.
+		$is_in_stock = $product->is_in_stock();
+		if ( ! $is_in_stock && ! $can_backorder && ! $can_preorder && ! $is_purchasable ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Check if product has preorder capabilities via standard meta or filter.
+	 *
+	 * @param \WC_Product $product Product instance.
+	 * @return bool
+	 */
+	public function is_preorder_capable( $product ) {
+		$product_id = $product->get_id();
+
+		// Check common WooCommerce preorder plugin flags.
+		$preorder_meta = array(
+			'_wc_pre_orders_enabled',
+			'_yith_wcpo_pre_order',
+			'_preorder',
+			'_is_preorder',
+			'preorder_enabled',
+		);
+
+		foreach ( $preorder_meta as $meta_key ) {
+			$val = get_post_meta( $product_id, $meta_key, true );
+			if ( 'yes' === $val || '1' === $val || true === $val ) {
+				return true;
+			}
+		}
+
+		return (bool) apply_filters( 'scpo_is_preorder_capable', false, $product );
 	}
 
 	/**
@@ -122,12 +202,24 @@ class Frontend_Renderer {
 			return;
 		}
 
-		$product_id  = $product->get_id();
-		$option_sets = Option_Set::get_active_for_product( $product_id );
+		$product_id = $product->get_id();
 
+		// Avoid duplicate rendering on normal in-stock products.
+		if ( in_array( $product_id, self::$rendered_products, true ) ) {
+			return;
+		}
+
+		if ( ! $this->is_product_eligible( $product ) ) {
+			return;
+		}
+
+		$option_sets = Option_Set::get_active_for_product( $product_id );
 		if ( empty( $option_sets ) ) {
 			return;
 		}
+
+		// Mark this product as rendered.
+		self::$rendered_products[] = $product_id;
 
 		$base_price = (float) $product->get_price();
 
@@ -146,6 +238,56 @@ class Frontend_Renderer {
 		echo '</div>';
 
 		echo '</div>'; // End wrapper.
+	}
+
+	/**
+	 * Fallback render for products where woocommerce_before_add_to_cart_button
+	 * does not fire (e.g. stock quantity is 0 or out of stock, but backorderable or preorder-capable).
+	 */
+	public function render_product_options_fallback() {
+		global $product;
+		if ( ! is_a( $product, 'WC_Product' ) ) {
+			return;
+		}
+
+		$product_id = $product->get_id();
+
+		// If options were already rendered by the main button hook, do nothing.
+		if ( in_array( $product_id, self::$rendered_products, true ) ) {
+			return;
+		}
+
+		if ( ! $this->is_product_eligible( $product ) ) {
+			return;
+		}
+
+		$option_sets = Option_Set::get_active_for_product( $product_id );
+		if ( empty( $option_sets ) ) {
+			return;
+		}
+
+		$has_cart_form = did_action( 'woocommerce_before_add_to_cart_form' );
+		if ( ! $has_cart_form ) {
+			echo '<form class="cart scpo-cart-form" method="post" enctype="multipart/form-data">';
+		}
+
+		$this->render_product_options();
+
+		if ( ! $has_cart_form ) {
+			$button_text = apply_filters(
+				'scpo_backorder_button_text',
+				$product->backorders_allowed() ? __( 'Backorder Now', 'simple-custom-product-options' ) : __( 'Pre-Order Now', 'simple-custom-product-options' ),
+				$product
+			);
+
+			echo '<div class="scpo-fallback-action-wrap" style="margin-top: 15px;">';
+			echo '<input type="hidden" name="add-to-cart" value="' . esc_attr( $product_id ) . '" />';
+			echo '<button type="submit" name="add-to-cart" value="' . esc_attr( $product_id ) . '" class="single_add_to_cart_button button alt scpo-backorder-submit">';
+			echo esc_html( $button_text );
+			echo '</button>';
+			echo '</div>';
+			echo '</form>';
+		}
 	}
 
 	/**
@@ -181,7 +323,12 @@ class Frontend_Renderer {
 			return;
 		}
 
-		echo '<div class="scpo-section" id="scpo-sec-' . esc_attr( $section['id'] ) . '">';
+		$sec_mode  = isset( $section['selection_mode'] ) ? $section['selection_mode'] : 'multiple';
+		$sec_id    = $section['id'];
+		$role_attr = ( 'single' === $sec_mode ) ? 'radiogroup' : 'group';
+		$aria_lbl  = ! empty( $section['title'] ) ? ' aria-label="' . esc_attr( $section['title'] ) . '"' : '';
+
+		echo '<div class="scpo-section scpo-section-mode-' . esc_attr( $sec_mode ) . '" id="scpo-sec-' . esc_attr( $sec_id ) . '" data-section-id="' . esc_attr( $sec_id ) . '" data-selection-mode="' . esc_attr( $sec_mode ) . '" role="' . esc_attr( $role_attr ) . '"' . $aria_lbl . '>';
 		if ( ! empty( $section['title'] ) ) {
 			echo '<h4 class="scpo-section-title">' . esc_html( $section['title'] ) . '</h4>';
 		}
@@ -190,7 +337,7 @@ class Frontend_Renderer {
 		}
 
 		foreach ( $section['fields'] as $field ) {
-			$this->render_field( $field );
+			$this->render_field( $field, $section );
 		}
 
 		echo '</div>';
@@ -200,8 +347,9 @@ class Frontend_Renderer {
 	 * Render a single form field (Phase 2 types).
 	 *
 	 * @param array $field Field configuration.
+	 * @param array $section Parent section configuration.
 	 */
-	protected function render_field( $field ) {
+	protected function render_field( $field, $section = array() ) {
 		$type       = isset( $field['type'] ) ? $field['type'] : 'text';
 		$field_id   = $field['id'];
 		$input_name = 'scpo_fields[' . esc_attr( $field_id ) . ']';
@@ -308,6 +456,71 @@ class Frontend_Renderer {
 
 			case 'date':
 				echo '<input type="date" id="scpo_input_' . esc_attr( $field_id ) . '" name="' . esc_attr( $input_name ) . '" class="scpo-input scpo-input-date"' . ( $required ? ' required' : '' ) . '>';
+				break;
+
+			case 'multiselect':
+				if ( ! empty( $field['options'] ) && is_array( $field['options'] ) ) {
+					echo '<div class="scpo-multiselect-group" role="group" aria-label="' . esc_attr( $label ) . '">';
+					foreach ( $field['options'] as $opt ) {
+						$opt_id    = esc_attr( $opt['id'] );
+						$opt_price = isset( $opt['price'] ) ? (float) $opt['price'] : 0.0;
+						$opt_tag   = $opt_price > 0 ? ' (+' . wc_price( $opt_price ) . ')' : '';
+						$ms_id     = 'scpo_ms_' . esc_attr( $field_id ) . '_' . $opt_id;
+
+						echo '<label for="' . esc_attr( $ms_id ) . '" class="scpo-multiselect-label">';
+						echo '<input type="checkbox" id="' . esc_attr( $ms_id ) . '" name="scpo_fields[' . esc_attr( $field_id ) . '][]" value="' . $opt_id . '" data-price="' . esc_attr( $opt_price ) . '" class="scpo-multiselect-input"> ';
+						echo esc_html( $opt['label'] ) . $opt_tag; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+						echo '</label><br>';
+					}
+					echo '</div>';
+				}
+				break;
+
+			case 'imageselect':
+				if ( ! empty( $field['options'] ) && is_array( $field['options'] ) ) {
+					$sec_mode        = isset( $section['selection_mode'] ) ? $section['selection_mode'] : 'single';
+					$is_multi        = ( 'multiple' === $sec_mode );
+					$role_attr       = $is_multi ? 'group' : 'radiogroup';
+					$input_type      = $is_multi ? 'checkbox' : 'radio';
+					$input_name_attr = $is_multi ? 'scpo_fields[' . esc_attr( $field_id ) . '][]' : esc_attr( $input_name );
+
+					echo '<div class="scpo-imageselect-grid" role="' . esc_attr( $role_attr ) . '" aria-label="' . esc_attr( $label ) . '">';
+					foreach ( $field['options'] as $opt ) {
+						$opt_id    = esc_attr( $opt['id'] );
+						$opt_price = isset( $opt['price'] ) ? (float) $opt['price'] : 0.0;
+						$opt_tag   = $opt_price > 0 ? ' (+' . wc_price( $opt_price ) . ')' : '';
+						$card_id   = 'scpo_img_' . esc_attr( $field_id ) . '_' . $opt_id;
+
+						$img_id  = isset( $opt['image_id'] ) ? absint( $opt['image_id'] ) : 0;
+						$img_url = '';
+						if ( $img_id > 0 && function_exists( 'wp_get_attachment_image_url' ) ) {
+							$img_url = wp_get_attachment_image_url( $img_id, 'medium' );
+						}
+						if ( empty( $img_url ) && ! empty( $opt['image_url'] ) ) {
+							$img_url = $opt['image_url'];
+						}
+
+						$alt_text = ! empty( $opt['alt'] ) ? $opt['alt'] : ( ! empty( $opt['label'] ) ? $opt['label'] : '' );
+
+						echo '<label for="' . esc_attr( $card_id ) . '" class="scpo-image-choice-card" tabindex="0">';
+						echo '<input type="' . esc_attr( $input_type ) . '" id="' . esc_attr( $card_id ) . '" name="' . esc_attr( $input_name_attr ) . '" value="' . $opt_id . '" data-price="' . esc_attr( $opt_price ) . '" class="scpo-imageselect-' . esc_attr( $input_type ) . '"' . ( ( ! $is_multi && $required ) ? ' required' : '' ) . '>';
+						echo '<div class="scpo-image-choice-preview">';
+						if ( ! empty( $img_url ) ) {
+							echo '<img src="' . esc_url( $img_url ) . '" alt="' . esc_attr( $alt_text ) . '" class="scpo-image-thumb">';
+						} else {
+							echo '<div class="scpo-image-placeholder">🖼️</div>';
+						}
+						echo '</div>';
+						echo '<div class="scpo-image-choice-info">';
+						echo '<span class="scpo-image-choice-label">' . esc_html( $opt['label'] ) . '</span>';
+						if ( $opt_price > 0 ) {
+							echo '<span class="scpo-image-choice-price">+' . wc_price( $opt_price ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+						}
+						echo '</div>';
+						echo '</label>';
+					}
+					echo '</div>';
+				}
 				break;
 		}
 

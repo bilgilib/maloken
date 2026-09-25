@@ -152,7 +152,7 @@ $is_warning      = 'saved_no_products' === $current_msg_key;
 				<div id="scpo-tab-preview" class="scpo-tab-content" style="display: none;">
 					<div class="scpo-card scpo-preview-card">
 						<div class="scpo-preview-banner">
-							<span><?php esc_html_e( 'Live Customer Form Preview (Synchronized with Current Edits)', 'simple-custom-product-options' ); ?></span>
+							<span><?php esc_html_e( 'Live Customer Form Preview (synchronized with current edits)', 'simple-custom-product-options' ); ?></span>
 						</div>
 						<div id="scpo-live-preview-container"></div>
 					</div>

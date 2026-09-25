@@ -334,6 +334,10 @@ class Cart_Manager {
 
 				// Visible key: Option Label. Visible Value: Option display value + price snapshot.
 				$item->add_meta_data( $option['label'], $option['display_value'] . $price_suffix, false );
+
+				if ( ! empty( $option['image_id'] ) ) {
+					$item->add_meta_data( '_scpo_image_attachment_' . $option['field_id'], absint( $option['image_id'] ), true );
+				}
 			}
 		}
 	}

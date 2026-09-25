@@ -26,6 +26,8 @@ class Sanitizer {
 		'radio',
 		'checkbox',
 		'date',
+		'multiselect',
+		'imageselect',
 	);
 
 	/**
@@ -114,12 +116,23 @@ class Sanitizer {
 			}
 			$seen_ids[ $sec_id ] = 'section';
 
+			$sec_mode = 'multiple';
+			if ( isset( $section['selection_mode'] ) ) {
+				$raw_mode = sanitize_key( $section['selection_mode'] );
+				if ( in_array( $raw_mode, array( 'single', 'single_choice' ), true ) ) {
+					$sec_mode = 'single';
+				} elseif ( in_array( $raw_mode, array( 'multiple', 'multiple_choices' ), true ) ) {
+					$sec_mode = 'multiple';
+				}
+			}
+
 			$sanitized_section = array(
-				'id'          => $sec_id,
-				'title'       => isset( $section['title'] ) ? sanitize_text_field( $section['title'] ) : '',
-				'description' => isset( $section['description'] ) ? sanitize_textarea_field( $section['description'] ) : '',
-				'order'       => isset( $section['order'] ) ? absint( $section['order'] ) : ( $sec_index + 1 ),
-				'fields'      => array(),
+				'id'             => $sec_id,
+				'title'          => isset( $section['title'] ) ? sanitize_text_field( $section['title'] ) : '',
+				'description'    => isset( $section['description'] ) ? sanitize_textarea_field( $section['description'] ) : '',
+				'selection_mode' => $sec_mode,
+				'order'          => isset( $section['order'] ) ? absint( $section['order'] ) : ( $sec_index + 1 ),
+				'fields'         => array(),
 			);
 
 			if ( isset( $section['fields'] ) ) {
@@ -214,10 +227,10 @@ class Sanitizer {
 						}
 					}
 
-					// Preserve Select / Radio Options.
-					if ( in_array( $raw_type, array( 'select', 'radio' ), true ) ) {
+					// Preserve Select / Multi Select / Radio Options.
+					if ( in_array( $raw_type, array( 'select', 'multiselect', 'radio' ), true ) ) {
 						if ( empty( $field['options'] ) || ! is_array( $field['options'] ) ) {
-							return new WP_Error( 'scpo_missing_options', sprintf( __( 'Field "%s" of type %s must define an options array with at least one choice.', 'simple-custom-product-options' ), $fld_id, $raw_type ) );
+							return new WP_Error( 'scpo_missing_options', sprintf( __( 'Field "%1$s" of type %2$s must define an options array with at least one choice.', 'simple-custom-product-options' ), $fld_id, $raw_type ) );
 						}
 
 						$sanitized_field['options'] = array();
@@ -237,6 +250,47 @@ class Sanitizer {
 								'id'    => $opt_id,
 								'label' => isset( $option['label'] ) ? sanitize_text_field( $option['label'] ) : '',
 								'price' => isset( $option['price'] ) ? (float) $option['price'] : 0.0,
+							);
+						}
+					}
+
+					// Preserve Image Select Options (Visual Choices).
+					if ( 'imageselect' === $raw_type ) {
+						if ( empty( $field['options'] ) || ! is_array( $field['options'] ) ) {
+							return new WP_Error( 'scpo_missing_options', sprintf( __( 'Field "%s" of type imageselect must define an options array with at least one choice.', 'simple-custom-product-options' ), $fld_id ) );
+						}
+
+						$sanitized_field['options'] = array();
+						$seen_opt_ids = array();
+
+						foreach ( $field['options'] as $option ) {
+							if ( ! is_array( $option ) || empty( $option['id'] ) ) {
+								return new WP_Error( 'scpo_invalid_option', sprintf( __( 'Field "%s" contains an option with missing or invalid "id".', 'simple-custom-product-options' ), $fld_id ) );
+							}
+							$opt_id = sanitize_key( $option['id'] );
+							if ( isset( $seen_opt_ids[ $opt_id ] ) ) {
+								return new WP_Error( 'scpo_duplicate_opt_id', sprintf( __( 'Field "%1$s" contains duplicate option id "%2$s".', 'simple-custom-product-options' ), $fld_id, $opt_id ) );
+							}
+							$seen_opt_ids[ $opt_id ] = true;
+
+							$img_id  = isset( $option['image_id'] ) ? absint( $option['image_id'] ) : 0;
+							$img_url = isset( $option['image_url'] ) ? esc_url_raw( $option['image_url'] ) : '';
+
+							// If valid attachment ID exists, derive URL safely
+							if ( $img_id > 0 && function_exists( 'wp_get_attachment_image_url' ) ) {
+								$derived_url = wp_get_attachment_image_url( $img_id, 'full' );
+								if ( $derived_url ) {
+									$img_url = $derived_url;
+								}
+							}
+
+							$sanitized_field['options'][] = array(
+								'id'        => $opt_id,
+								'label'     => isset( $option['label'] ) ? sanitize_text_field( $option['label'] ) : '',
+								'image_id'  => $img_id,
+								'image_url' => $img_url,
+								'alt'       => isset( $option['alt'] ) ? sanitize_text_field( $option['alt'] ) : '',
+								'price'     => isset( $option['price'] ) ? (float) $option['price'] : 0.0,
 							);
 						}
 					}

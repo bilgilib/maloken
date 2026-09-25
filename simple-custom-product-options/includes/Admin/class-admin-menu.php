@@ -45,18 +45,28 @@ class Admin_Menu {
 			return;
 		}
 
+		// Enqueue WordPress Media Library modal assets on editor screen.
+		if ( function_exists( 'wp_enqueue_media' ) ) {
+			wp_enqueue_media();
+		}
+
+		$css_file = SCPO_PLUGIN_DIR . 'assets/css/scpo-admin.css';
+		$js_file  = SCPO_PLUGIN_DIR . 'assets/js/scpo-admin.js';
+		$css_ver  = file_exists( $css_file ) ? (string) filemtime( $css_file ) : SCPO_VERSION;
+		$js_ver   = file_exists( $js_file ) ? (string) filemtime( $js_file ) : SCPO_VERSION;
+
 		wp_enqueue_style(
 			'scpo-admin-style',
 			SCPO_PLUGIN_URL . 'assets/css/scpo-admin.css',
 			array(),
-			SCPO_VERSION
+			$css_ver
 		);
 
 		wp_enqueue_script(
 			'scpo-admin-script',
 			SCPO_PLUGIN_URL . 'assets/js/scpo-admin.js',
 			array( 'jquery' ),
-			SCPO_VERSION,
+			$js_ver,
 			true
 		);
 
@@ -64,9 +74,14 @@ class Admin_Menu {
 			'scpo-admin-script',
 			'scpo_admin_params',
 			array(
-				'i18n' => array(
+				'ajax_url'     => admin_url( 'admin-ajax.php' ),
+				'media_nonce'  => wp_create_nonce( 'scpo_media_nonce' ),
+				'media_folder' => Media_Folder::FOLDER_NAME,
+				'i18n'         => array(
 					'confirm_delete'    => __( 'Are you sure you want to delete this option set?', 'simple-custom-product-options' ),
 					'confirm_duplicate' => __( 'Duplicate this option set?', 'simple-custom-product-options' ),
+					'choose_image'      => __( 'Choose Option Image', 'simple-custom-product-options' ),
+					'use_image'         => __( 'Use This Image', 'simple-custom-product-options' ),
 				),
 			)
 		);

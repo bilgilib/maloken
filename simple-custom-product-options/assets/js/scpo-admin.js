@@ -188,6 +188,21 @@
 			}
 		}
 
+		function getFieldTypeDisplayLabel(type) {
+			var map = {
+				'select': 'Single Select',
+				'multiselect': 'Multi Select',
+				'imageselect': 'Image Select',
+				'text': 'Text Input',
+				'textarea': 'Textarea',
+				'number': 'Number',
+				'checkbox': 'Checkbox',
+				'radio': 'Radio Buttons',
+				'date': 'Date Picker'
+			};
+			return map[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Option');
+		}
+
 		function findSection(secId) {
 			if (!schema || !schema.sections) return null;
 			return schema.sections.find(function(s) { return s.id === secId; });
@@ -312,14 +327,20 @@
 				// Section Header
 				var secHeader = document.createElement('div');
 				secHeader.className = 'scpo-section-header';
+				var secMode = section.selection_mode || 'multiple';
 				secHeader.innerHTML =
 					'<div class="scpo-section-title-wrap">' +
 						'<span class="scpo-section-drag-handle" title="Drag to reorder section">☰</span>' +
 						'<input type="text" class="scpo-sec-title-input" value="' + escapeHtml(section.title || 'Untitled Section') + '" placeholder="Section Title">' +
-						'<span class="description" style="font-size: 11px;">(' + (section.fields ? section.fields.length : 0) + ' fields)</span>' +
+						'<span class="description" style="font-size: 11px;">(' + (section.fields ? section.fields.length : 0) + ' options)</span>' +
 					'</div>' +
 					'<div class="scpo-section-actions">' +
-						'<button type="button" class="button button-small scpo-btn-add-field" title="Add Field">+ Add Field</button>' +
+						'<label style="font-size: 11px; margin-right: 2px; color: #50575e;">Selection mode:</label>' +
+						'<select class="scpo-sec-mode-select" title="Selection mode" style="font-size: 11px; height: 26px; padding: 0 4px; margin-right: 6px;">' +
+							'<option value="multiple"' + (secMode === 'single' ? '' : ' selected') + '>Multiple choices</option>' +
+							'<option value="single"' + (secMode === 'single' ? ' selected' : '') + '>Single choice</option>' +
+						'</select>' +
+						'<button type="button" class="button button-small scpo-btn-add-field" title="Add Option">+ New Option</button>' +
 						'<button type="button" class="button button-small scpo-btn-move-sec-up" title="Move Up"' + (sIdx === 0 ? ' disabled' : '') + '>↑</button>' +
 						'<button type="button" class="button button-small scpo-btn-move-sec-down" title="Move Down"' + (sIdx === schema.sections.length - 1 ? ' disabled' : '') + '>↓</button>' +
 						'<button type="button" class="button button-small scpo-btn-delete-sec" title="Delete Section" style="color: #b32d2e;">✕</button>' +
@@ -357,8 +378,8 @@
 						fldItem.innerHTML =
 							'<div class="scpo-field-meta">' +
 								'<span class="scpo-field-drag-handle" title="Drag to reorder field">⠿</span>' +
-								'<span class="scpo-field-badge">' + escapeHtml(field.type) + '</span>' +
-								'<span class="scpo-field-title">' + escapeHtml(field.label || 'Untitled Field') + (field.required ? ' <span style="color:red;">*</span>' : '') + '</span>' +
+								'<span class="scpo-field-badge">' + escapeHtml(getFieldTypeDisplayLabel(field.type)) + '</span>' +
+								'<span class="scpo-field-title">' + escapeHtml(field.label || 'New Option') + (field.required ? ' <span style="color:red;">*</span>' : '') + '</span>' +
 								priceBadge +
 								condBadge +
 							'</div>' +
@@ -528,7 +549,7 @@
 				var newFld = {
 					id: generateStableId('fld'),
 					type: 'text',
-					label: 'New Field',
+					label: 'New Option',
 					description: '',
 					required: false,
 					css_class: '',
@@ -651,13 +672,16 @@
 					var srcFld = dpSec.fields[srcIdx];
 					var cloned = JSON.parse(JSON.stringify(srcFld));
 					cloned.id = generateStableId('fld');
-					cloned.label = (srcFld.label || 'Untitled Field') + ' (Copy)';
+					cloned.label = (srcFld.label || 'New Option') + ' (Copy)';
 
 					if (cloned.options && Array.isArray(cloned.options)) {
 						cloned.options = cloned.options.map(function(opt) {
 							return {
 								id: generateStableId('opt'),
 								label: opt.label,
+								image_id: opt.image_id !== undefined ? opt.image_id : 0,
+								image_url: opt.image_url || '',
+								alt: opt.alt || '',
 								price: opt.price
 							};
 						});
@@ -713,6 +737,21 @@
 				return;
 			}
 
+			// Select Section Title Wrap
+			var secTitleWrap = e.target.closest('.scpo-section-title-wrap');
+			if (secTitleWrap && e.target.tagName !== 'INPUT') {
+				var secCardEl = secTitleWrap.closest('.scpo-section-card');
+				if (secCardEl) {
+					var sIdVal = secCardEl.getAttribute('data-sec-id');
+					activeSelection = { type: 'section', secId: sIdVal };
+					document.querySelectorAll('.scpo-section-card').forEach(function(sc) { sc.classList.remove('selected'); });
+					document.querySelectorAll('.scpo-field-item').forEach(function(fi) { fi.classList.remove('selected'); });
+					secCardEl.classList.add('selected');
+					openSectionPanel(sIdVal);
+					return;
+				}
+			}
+
 			// Select / Edit Field
 			var fldItemTarget = e.target.closest('.scpo-field-item');
 			if (fldItemTarget) {
@@ -738,7 +777,7 @@
 			}
 		});
 
-		// Section title input change
+		// Section title and selection mode changes
 		document.addEventListener('change', function(e) {
 			if (!e || !e.target || typeof e.target.closest !== 'function') return;
 			if (e.target.classList && e.target.classList.contains('scpo-sec-title-input')) {
@@ -750,10 +789,101 @@
 						sec.title = e.target.value;
 						isDirty = true;
 						syncSchemaToJson();
+						renderLivePreview();
+					}
+				}
+			}
+			if (e.target.classList && e.target.classList.contains('scpo-sec-mode-select')) {
+				var secCardMode = e.target.closest('.scpo-section-card');
+				if (secCardMode) {
+					var secIdMode = secCardMode.getAttribute('data-sec-id');
+					var secModeObj = findSection(secIdMode);
+					if (secModeObj) {
+						secModeObj.selection_mode = e.target.value;
+						isDirty = true;
+						syncSchemaToJson();
+						renderLivePreview();
 					}
 				}
 			}
 		});
+
+		// 4b. Contextual Section Inspector Panel
+		function openSectionPanel(secId) {
+			var sec = findSection(secId);
+			if (!sec) return;
+
+			var panel = document.getElementById('scpo-contextual-panel');
+			var content = document.getElementById('scpo-panel-content');
+			var panelTitle = document.getElementById('scpo-panel-title');
+			if (!panel || !content) return;
+
+			if (panelTitle) {
+				panelTitle.textContent = 'Configure Section: ' + (sec.title || 'Untitled Section');
+			}
+
+			var currentMode = sec.selection_mode || 'multiple';
+
+			var html =
+				'<div class="scpo-panel-group">' +
+					'<label>Section ID (Stable identifier):</label>' +
+					'<input type="text" value="' + escapeHtml(sec.id) + '" disabled style="background:#f0f0f1; font-family:monospace; font-size:11px;">' +
+				'</div>' +
+				'<div class="scpo-panel-group">' +
+					'<label>Section Title *:</label>' +
+					'<input type="text" id="scpo-edit-sec-title" value="' + escapeHtml(sec.title || '') + '">' +
+				'</div>' +
+				'<div class="scpo-panel-group">' +
+					'<label>Selection mode *:</label>' +
+					'<select id="scpo-edit-sec-mode">' +
+						'<option value="multiple"' + (currentMode === 'single' ? '' : ' selected') + '>Multiple choices</option>' +
+						'<option value="single"' + (currentMode === 'single' ? ' selected' : '') + '>Single choice</option>' +
+					'</select>' +
+					'<p class="description" style="margin-top:4px; font-size:11px; line-height:1.4;">' +
+						'<strong>Single choice:</strong> Sibling options allow only one choice to be selected (e.g. Color, Camouflage Pattern, Size/Style).<br>' +
+						'<strong>Multiple choices:</strong> Sibling options allow several choices to be selected simultaneously (e.g. Extra Accessories, Add-ons).' +
+					'</p>' +
+				'</div>' +
+				'<div class="scpo-panel-group">' +
+					'<label>Helper / Description Text:</label>' +
+					'<textarea id="scpo-edit-sec-desc" rows="3">' + escapeHtml(sec.description || '') + '</textarea>' +
+				'</div>';
+
+			content.innerHTML = html;
+			panel.style.display = 'block';
+
+			var titleInput = document.getElementById('scpo-edit-sec-title');
+			if (titleInput) {
+				titleInput.oninput = function() {
+					sec.title = this.value;
+					isDirty = true;
+					var cardTitleInput = document.querySelector('.scpo-section-card[data-sec-id="' + sec.id + '"] .scpo-sec-title-input');
+					if (cardTitleInput) cardTitleInput.value = this.value;
+					syncSchemaToJson();
+				};
+			}
+
+			var modeSelect = document.getElementById('scpo-edit-sec-mode');
+			if (modeSelect) {
+				modeSelect.onchange = function() {
+					sec.selection_mode = this.value;
+					isDirty = true;
+					var cardModeSelect = document.querySelector('.scpo-section-card[data-sec-id="' + sec.id + '"] .scpo-sec-mode-select');
+					if (cardModeSelect) cardModeSelect.value = this.value;
+					syncSchemaToJson();
+					renderLivePreview();
+				};
+			}
+
+			var descInput = document.getElementById('scpo-edit-sec-desc');
+			if (descInput) {
+				descInput.oninput = function() {
+					sec.description = this.value;
+					isDirty = true;
+					syncSchemaToJson();
+				};
+			}
+		}
 
 		// 5. Contextual Inspector Panel
 		function openContextualPanel(secId, fldId) {
@@ -766,7 +896,7 @@
 			if (!panel || !content) return;
 
 			if (panelTitle) {
-				panelTitle.textContent = 'Configure ' + field.type.toUpperCase() + ' Option';
+				panelTitle.textContent = 'Configure Option: ' + getFieldTypeDisplayLabel(field.type);
 			}
 
 			var html =
@@ -784,7 +914,9 @@
 						'<option value="text"' + (field.type === 'text' ? ' selected' : '') + '>Text Input</option>' +
 						'<option value="textarea"' + (field.type === 'textarea' ? ' selected' : '') + '>Textarea (Multi-line)</option>' +
 						'<option value="number"' + (field.type === 'number' ? ' selected' : '') + '>Number Input</option>' +
-						'<option value="select"' + (field.type === 'select' ? ' selected' : '') + '>Dropdown (Select)</option>' +
+						'<option value="select"' + (field.type === 'select' ? ' selected' : '') + '>Single Select (Dropdown)</option>' +
+						'<option value="multiselect"' + (field.type === 'multiselect' ? ' selected' : '') + '>Multi Select (Multiple Choices)</option>' +
+						'<option value="imageselect"' + (field.type === 'imageselect' ? ' selected' : '') + '>Image Select (Visual Choice)</option>' +
 						'<option value="radio"' + (field.type === 'radio' ? ' selected' : '') + '>Radio Buttons</option>' +
 						'<option value="checkbox"' + (field.type === 'checkbox' ? ' selected' : '') + '>Checkbox (Toggle)</option>' +
 						'<option value="date"' + (field.type === 'date' ? ' selected' : '') + '>Date Picker</option>' +
@@ -831,8 +963,8 @@
 
 			html += '</div>';
 
-			// Choices accordion (for select and radio)
-			if (field.type === 'select' || field.type === 'radio') {
+			// Choices accordion (for select, multiselect, and radio)
+			if (field.type === 'select' || field.type === 'multiselect' || field.type === 'radio') {
 				field.options = field.options || [{ id: generateStableId('opt'), label: 'Choice 1', price: 0 }];
 				html +=
 					'<div class="scpo-accordion-header" data-toggle="choices">Choices & Option Values ▾</div>' +
@@ -854,6 +986,54 @@
 							'</tbody>' +
 						'</table>' +
 						'<button type="button" class="button button-small" id="scpo-btn-add-choice" style="margin-top: 8px;">+ Add Choice</button>' +
+					'</div>';
+			}
+
+			// Image Choices accordion (for imageselect)
+			if (field.type === 'imageselect') {
+				field.options = field.options || [{ id: generateStableId('opt'), label: 'Option 1', image_id: 0, image_url: '', alt: '', price: 0 }];
+				html +=
+					'<div class="scpo-accordion-header" data-toggle="image-choices">Image Choices & Media Library ▾</div>' +
+					'<div class="scpo-accordion-body" id="scpo-sec-image-choices">' +
+						'<p class="description" style="margin-top:0; font-size:11px;">Images selected or uploaded are organized into the dedicated "Simple Product Options" Media Library folder.</p>' +
+						'<div id="scpo-image-choices-list" class="scpo-image-choices-list">';
+
+				field.options.forEach(function(opt) {
+					var thumbMarkup = opt.image_url
+						? '<img src="' + escapeHtml(opt.image_url) + '" class="scpo-choice-thumb" alt="' + escapeHtml(opt.alt || opt.label) + '">'
+						: '<div class="scpo-choice-thumb-empty">🖼️</div>';
+
+					html +=
+						'<div class="scpo-image-choice-row" data-opt-id="' + opt.id + '">' +
+							'<div class="scpo-choice-thumb-wrap">' +
+								thumbMarkup +
+								'<button type="button" class="button button-small scpo-btn-choose-img" title="Select or Upload from Media Library">Choose Image</button>' +
+							'</div>' +
+							'<div class="scpo-choice-fields-wrap">' +
+								'<div class="scpo-choice-row-item">' +
+									'<label>Choice Label *:</label>' +
+									'<input type="text" class="scpo-choice-label" value="' + escapeHtml(opt.label) + '" placeholder="e.g. Woodland Camo">' +
+								'</div>' +
+								'<div class="scpo-choice-row-item">' +
+									'<label>Price Delta (+):</label>' +
+									'<input type="number" step="0.01" class="scpo-choice-price" value="' + (opt.price || 0) + '">' +
+								'</div>' +
+								'<div class="scpo-choice-row-item">' +
+									'<label>Alt Text:</label>' +
+									'<input type="text" class="scpo-choice-alt" value="' + escapeHtml(opt.alt || '') + '" placeholder="Image description">' +
+								'</div>' +
+								'<div class="scpo-choice-footer-item">' +
+									'<span class="description" style="font-family:monospace; font-size:10px;">ID: ' + escapeHtml(opt.id) + '</span>' +
+									(opt.image_id ? '<span class="description" style="font-size:10px; margin-left:6px;">(Attachment #' + opt.image_id + ')</span>' : '') +
+									'<button type="button" class="button-link scpo-btn-del-choice" style="color:red; margin-left:auto;"' + (field.options.length <= 1 ? ' disabled' : '') + '>Delete Choice</button>' +
+								'</div>' +
+							'</div>' +
+						'</div>';
+				});
+
+				html +=
+						'</div>' +
+						'<button type="button" class="button button-small" id="scpo-btn-add-img-choice" style="margin-top: 10px;">+ Add Image Choice</button>' +
 					'</div>';
 			}
 
@@ -1084,7 +1264,7 @@
 				};
 			}
 
-			// Add Choice
+			// Add Choice (Select, Multi Select, Radio)
 			var addChoiceBtn = document.getElementById('scpo-btn-add-choice');
 			if (addChoiceBtn) {
 				addChoiceBtn.onclick = function() {
@@ -1101,12 +1281,33 @@
 				};
 			}
 
-			// Choices table edits
+			// Add Image Choice (Image Select)
+			var addImgChoiceBtn = document.getElementById('scpo-btn-add-img-choice');
+			if (addImgChoiceBtn) {
+				addImgChoiceBtn.onclick = function() {
+					field.options = field.options || [];
+					var newOpt = {
+						id: generateStableId('opt'),
+						label: 'Option ' + (field.options.length + 1),
+						image_id: 0,
+						image_url: '',
+						alt: '',
+						price: 0
+					};
+					field.options.push(newOpt);
+					isDirty = true;
+					openContextualPanel(secId, fldId);
+					renderBuilderCanvas();
+				};
+			}
+
+			// Choices edits (works for both table and image choice rows)
 			var choiceLabels = document.querySelectorAll('.scpo-choice-label');
 			choiceLabels.forEach(function(input) {
 				input.oninput = function() {
-					var tr = this.closest('tr');
-					var optId = tr.getAttribute('data-opt-id');
+					var row = this.closest('tr, .scpo-image-choice-row');
+					if (!row) return;
+					var optId = row.getAttribute('data-opt-id');
 					var opt = field.options.find(function(o) { return o.id === optId; });
 					if (opt) {
 						opt.label = input.value;
@@ -1119,8 +1320,9 @@
 			var choicePrices = document.querySelectorAll('.scpo-choice-price');
 			choicePrices.forEach(function(input) {
 				input.oninput = function() {
-					var tr = this.closest('tr');
-					var optId = tr.getAttribute('data-opt-id');
+					var row = this.closest('tr, .scpo-image-choice-row');
+					if (!row) return;
+					var optId = row.getAttribute('data-opt-id');
 					var opt = field.options.find(function(o) { return o.id === optId; });
 					if (opt) {
 						opt.price = parseFloat(input.value) || 0;
@@ -1130,15 +1332,90 @@
 				};
 			});
 
+			var choiceAlts = document.querySelectorAll('.scpo-choice-alt');
+			choiceAlts.forEach(function(input) {
+				input.oninput = function() {
+					var row = this.closest('tr, .scpo-image-choice-row');
+					if (!row) return;
+					var optId = row.getAttribute('data-opt-id');
+					var opt = field.options.find(function(o) { return o.id === optId; });
+					if (opt) {
+						opt.alt = input.value;
+						isDirty = true;
+						syncSchemaToJson();
+					}
+				};
+			});
+
 			var delChoiceBtns = document.querySelectorAll('.scpo-btn-del-choice');
 			delChoiceBtns.forEach(function(btn) {
 				btn.onclick = function() {
-					var tr = this.closest('tr');
-					var optId = tr.getAttribute('data-opt-id');
+					var row = this.closest('tr, .scpo-image-choice-row');
+					if (!row) return;
+					var optId = row.getAttribute('data-opt-id');
 					field.options = field.options.filter(function(o) { return o.id !== optId; });
 					isDirty = true;
 					openContextualPanel(secId, fldId);
 					renderBuilderCanvas();
+				};
+			});
+
+			// Media Library Picker Button
+			var chooseImgBtns = document.querySelectorAll('.scpo-btn-choose-img');
+			chooseImgBtns.forEach(function(btn) {
+				btn.onclick = function(e) {
+					e.preventDefault();
+					var row = this.closest('.scpo-image-choice-row');
+					if (!row) return;
+					var optId = row.getAttribute('data-opt-id');
+					var opt = field.options.find(function(o) { return o.id === optId; });
+					if (!opt) return;
+
+					if (typeof window.wp !== 'undefined' && window.wp.media) {
+						var customUploader = window.wp.media({
+							title: (window.scpo_admin_params && window.scpo_admin_params.i18n && window.scpo_admin_params.i18n.choose_image) || 'Choose Option Image',
+							button: {
+								text: (window.scpo_admin_params && window.scpo_admin_params.i18n && window.scpo_admin_params.i18n.use_image) || 'Use This Image'
+							},
+							multiple: false,
+							library: { type: 'image' }
+						});
+
+						customUploader.on('select', function() {
+							var attachment = customUploader.state().get('selection').first().toJSON();
+							opt.image_id = attachment.id;
+							var bestUrl = (attachment.sizes && attachment.sizes.thumbnail) ? attachment.sizes.thumbnail.url : attachment.url;
+							opt.image_url = bestUrl || '';
+							opt.alt = attachment.alt || attachment.caption || '';
+							if (!opt.label || opt.label.indexOf('Option ') === 0) {
+								opt.label = attachment.title || opt.label;
+							}
+
+							// Automatically tag attachment to "Simple Product Options" logical folder via AJAX
+							if (window.scpo_admin_params && window.scpo_admin_params.ajax_url && window.scpo_admin_params.media_nonce) {
+								var formData = 'action=scpo_tag_media&nonce=' + encodeURIComponent(window.scpo_admin_params.media_nonce) + '&attachment_id=' + encodeURIComponent(attachment.id);
+								var xhr = new XMLHttpRequest();
+								xhr.open('POST', window.scpo_admin_params.ajax_url, true);
+								xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+								xhr.send(formData);
+							}
+
+							isDirty = true;
+							openContextualPanel(secId, fldId);
+							renderBuilderCanvas();
+						});
+
+						customUploader.open();
+					} else {
+						// Fallback: prompt for image URL
+						var userUrl = prompt('Enter Image URL for this choice:', opt.image_url || '');
+						if (userUrl !== null) {
+							opt.image_url = userUrl.trim();
+							isDirty = true;
+							openContextualPanel(secId, fldId);
+							renderBuilderCanvas();
+						}
+					}
 				};
 			});
 
@@ -1301,7 +1578,9 @@
 
 			schema.sections.forEach(function(sec) {
 				var s = document.createElement('div');
-				s.className = 'scpo-section';
+				var secMode = sec.selection_mode || 'multiple';
+				s.className = 'scpo-section scpo-section-mode-' + secMode;
+				s.setAttribute('data-selection-mode', secMode);
 				if (sec.title) {
 					var st = document.createElement('h4');
 					st.className = 'scpo-section-title';
@@ -1369,6 +1648,39 @@
 							row.innerHTML += '<label><input type="checkbox" value="yes"> ' + escapeHtml(fld.label) + (fld.required ? ' *' : '') + pTag + '</label>';
 						} else if (fld.type === 'date') {
 							row.innerHTML += '<input type="date" class="scpo-input">';
+						} else if (fld.type === 'multiselect') {
+							if (fld.options) {
+								var msHtml = '<div style="display:flex; flex-direction:column; gap:4px; margin-top:4px;">';
+								fld.options.forEach(function(opt) {
+									var oPrice = opt.price > 0 ? ' (+€' + parseFloat(opt.price).toFixed(2) + ')' : '';
+									msHtml += '<label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" name="' + fld.id + '[]" value="' + opt.id + '"> ' + escapeHtml(opt.label) + oPrice + '</label>';
+								});
+								msHtml += '</div>';
+								row.innerHTML += msHtml;
+							}
+						} else if (fld.type === 'imageselect') {
+							if (fld.options) {
+								var isMulti = (secMode === 'multiple');
+								var inputType = isMulti ? 'checkbox' : 'radio';
+								var inputName = isMulti ? fld.id + '[]' : fld.id;
+								var imgGrid = '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:10px; margin-top:6px;">';
+								fld.options.forEach(function(opt) {
+									var oPrice = opt.price > 0 ? '<span style="color:#2563eb; font-size:11px; font-weight:600;">+€' + parseFloat(opt.price).toFixed(2) + '</span>' : '';
+									var imgBox = opt.image_url
+										? '<img src="' + escapeHtml(opt.image_url) + '" style="width:100%; height:75px; object-fit:cover; border-radius:4px; display:block;">'
+										: '<div style="height:75px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; border-radius:4px; font-size:24px;">🖼️</div>';
+
+									imgGrid +=
+										'<label style="display:flex; flex-direction:column; border:2px solid #e2e8f0; border-radius:6px; overflow:hidden; background:#fff; cursor:pointer; text-align:center; padding:6px; transition:border-color 0.2s;">' +
+										'<input type="' + inputType + '" name="' + inputName + '" value="' + opt.id + '" style="margin:0 auto 4px auto;">' +
+										imgBox +
+										'<span style="font-size:12px; font-weight:600; margin-top:4px; color:#1e293b;">' + escapeHtml(opt.label) + '</span>' +
+										oPrice +
+										'</label>';
+								});
+								imgGrid += '</div>';
+								row.innerHTML += imgGrid;
+							}
 						}
 
 						s.appendChild(row);

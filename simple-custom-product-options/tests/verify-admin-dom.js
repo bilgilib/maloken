@@ -467,7 +467,182 @@ assert(t7.canvas.children.length === 0, 'Lifecycle loading: Not initialized befo
 t7.doc.dispatchEvent({ type: 'DOMContentLoaded' });
 assert(t7.canvas.children.length === 1, 'Lifecycle loading: Initialized immediately upon DOMContentLoaded');
 
+// ==========================================
+// TEST 8: Phase 4 DOM Hydration & Choice Serialization
+// ==========================================
+const samplePhase4Schema = {
+  $schema_version: '1.1.0',
+  id: 'set_phase4_demo',
+  title: 'Phase 4 Field Types',
+  sections: [
+    {
+      id: 'sec_options',
+      title: 'Advanced Options',
+      fields: [
+        {
+          id: 'fld_dropdown',
+          type: 'select',
+          label: 'Color Dropdown',
+          options: [
+            { id: 'opt_black', label: 'Black', price: 0 },
+            { id: 'opt_khaki', label: 'Khaki', price: 5 }
+          ]
+        },
+        {
+          id: 'fld_gear',
+          type: 'multiselect',
+          label: 'Accessories Gear',
+          options: [
+            { id: 'opt_belt', label: 'Belt', price: 15 },
+            { id: 'opt_pouch', label: 'Pouch', price: 10 }
+          ]
+        },
+        {
+          id: 'fld_pattern_choice',
+          type: 'imageselect',
+          label: 'Camouflage Pattern',
+          options: [
+            {
+              id: 'opt_woodland',
+              label: 'Woodland Pattern',
+              image_id: 145,
+              image_url: 'https://example.com/camo.jpg',
+              alt: 'Woodland pattern',
+              price: 20
+            }
+          ]
+        }
+      ]
+    }
+  ]
+};
+
+const t8 = buildMockEditorDOM(JSON.stringify(samplePhase4Schema), 'complete');
+runAdminScript(t8.win, t8.doc);
+
+assert(t8.canvas.children.length === 1, 'Phase 4 DOM: 1 section rendered in canvas');
+const renderedCard8 = t8.canvas.children[0];
+const renderedFields8 = renderedCard8.querySelectorAll('.scpo-field-item');
+assert(renderedFields8.length === 3, 'Phase 4 DOM: All 3 fields rendered');
+
+const fieldLabels8 = renderedFields8.map(f => f.innerHTML);
+assert(fieldLabels8.some(l => l.includes('Color Dropdown')), 'Phase 4 DOM: select field title rendered');
+assert(fieldLabels8.some(l => l.includes('Accessories Gear')), 'Phase 4 DOM: multiselect field title rendered');
+assert(fieldLabels8.some(l => l.includes('Camouflage Pattern')), 'Phase 4 DOM: imageselect field title rendered');
+
+// Test submitting the form to verify Phase 4 choices serialization
+const form8 = t8.doc.getElementById('scpo-editor-form');
+t8.doc.dispatchEvent({
+  type: 'submit',
+  target: form8,
+  preventDefault: () => {}
+});
+
+const savedPhase4 = JSON.parse(t8.textarea.value);
+const savedImgFld = savedPhase4.sections[0].fields.find(f => f.id === 'fld_pattern_choice');
+assert(savedImgFld !== undefined, 'Phase 4 Serialization: imageselect field preserved');
+assert(savedImgFld.options[0].id === 'opt_woodland', 'Phase 4 Serialization: choice ID opt_woodland preserved');
+assert(savedImgFld.options[0].image_id === 145, 'Phase 4 Serialization: canonical image attachment ID 145 preserved');
+assert(savedImgFld.options[0].price === 20, 'Phase 4 Serialization: choice price adjustment 20 preserved');
+
+// ==========================================
+// TEST 9: Phase 3.3 Admin UI Labels, Turkish Locale Safety & Default Naming
+// ==========================================
+const samplePhase33Schema = {
+  $schema_version: '1.1.1',
+  id: 'set_phase33_turkish',
+  title: 'Turkish Store Option Set',
+  sections: [
+    {
+      id: 'sec_turkish',
+      title: 'Özel Seçenekler',
+      fields: [
+        {
+          id: 'fld_turkish_select',
+          type: 'select',
+          label: 'Kırmızı Boya Seçeneği',
+          options: [{ id: 'opt_kirmizi', label: 'Kırmızı', price: 0 }]
+        },
+        {
+          id: 'fld_turkish_multi',
+          type: 'multiselect',
+          label: 'Ekstra Donanım',
+          options: [{ id: 'opt_kayis', label: 'Taktik Kayış', price: 10 }]
+        },
+        {
+          id: 'fld_turkish_image',
+          type: 'imageselect',
+          label: 'Kamuflaj Deseni',
+          options: [{ id: 'opt_orman', label: 'Orman Deseni', image_id: 201, price: 15 }]
+        }
+      ]
+    }
+  ]
+};
+
+const t9 = buildMockEditorDOM(JSON.stringify(samplePhase33Schema), 'complete');
+runAdminScript(t9.win, t9.doc);
+
+const renderedCard9 = t9.canvas.children[0];
+const renderedFields9 = renderedCard9.querySelectorAll('.scpo-field-item');
+const fieldHtmls9 = renderedFields9.map(f => f.innerHTML);
+
+assert(fieldHtmls9.some(h => h.includes('>Single Select<')), 'Field badge displays "Single Select" instead of raw enum key');
+assert(fieldHtmls9.some(h => h.includes('>Multi Select<')), 'Field badge displays "Multi Select" instead of raw enum key');
+assert(fieldHtmls9.some(h => h.includes('>Image Select<')), 'Field badge displays "Image Select" instead of raw enum key');
+assert(!fieldHtmls9.some(h => h.includes('İMAGESELECT') || h.includes('>imageselect<')), 'No raw enum "imageselect" or Turkish locale "İMAGESELECT" rendered');
+
+// Check that merchant-authored labels are preserved exactly without transliteration
+assert(fieldHtmls9.some(h => h.includes('Kırmızı Boya Seçeneği')), 'Preserves Turkish merchant label "Kırmızı Boya Seçeneği" exactly');
+assert(fieldHtmls9.some(h => h.includes('Ekstra Donanım')), 'Preserves Turkish merchant label "Ekstra Donanım" exactly');
+assert(fieldHtmls9.some(h => h.includes('Kamuflaj Deseni')), 'Preserves Turkish merchant label "Kamuflaj Deseni" exactly');
+
+// Check CSS rules: ensure .scpo-field-badge has no text-transform: uppercase
+const adminCss = fs.readFileSync(path.join(pluginDir, 'assets/css/scpo-admin.css'), 'utf8');
+const badgeCssMatch = adminCss.match(/\.scpo-field-badge\s*\{([^}]+)\}/);
+assert(badgeCssMatch && !badgeCssMatch[1].includes('text-transform'), 'CSS .scpo-field-badge does NOT contain text-transform: uppercase');
+
+// Test clicking Add Field produces "New Option" instead of "New Field"
+const addFldBtn9 = t9.doc.createElement('button');
+addFldBtn9.className = 'button scpo-btn-add-field';
+renderedCard9.appendChild(addFldBtn9);
+
+t9.doc.dispatchEvent({
+  type: 'click',
+  target: addFldBtn9,
+  preventDefault: () => {},
+  stopPropagation: () => {}
+});
+
+const updatedSchema9 = JSON.parse(t9.textarea.value);
+const addedField9 = updatedSchema9.sections[0].fields.find(f => f.label === 'New Option');
+assert(addedField9 !== undefined, 'Adding field creates default label "New Option" instead of "New Field"');
+assert(!updatedSchema9.sections[0].fields.some(f => f.label === 'New Field'), 'No "New Field" label created in schema');
+
+// Test duplicating field produces "New Option (Copy)"
+const dupFieldItem9 = t9.doc.createElement('div');
+dupFieldItem9.className = 'scpo-field-item';
+dupFieldItem9.setAttribute('data-sec-id', 'sec_turkish');
+dupFieldItem9.setAttribute('data-fld-id', addedField9.id);
+renderedCard9.appendChild(dupFieldItem9);
+
+const dupBtn9 = t9.doc.createElement('button');
+dupBtn9.className = 'button scpo-btn-dup-fld';
+dupFieldItem9.appendChild(dupBtn9);
+
+t9.doc.dispatchEvent({
+  type: 'click',
+  target: dupBtn9,
+  preventDefault: () => {},
+  stopPropagation: () => {}
+});
+
+const postDupSchema9 = JSON.parse(t9.textarea.value);
+const duplicatedField9 = postDupSchema9.sections[0].fields.find(f => f.label === 'New Option (Copy)');
+assert(duplicatedField9 !== undefined, 'Duplicating field appends "(Copy)" to produce "New Option (Copy)"');
+
 console.log(JSON.stringify(results, null, 2));
 const passed = results.filter(r => r.status === 'PASS').length;
 const total = results.length;
 console.log(`\nAdmin DOM Runtime Smoke-Test Summary: ${passed}/${total} assertions PASSED.`);
+

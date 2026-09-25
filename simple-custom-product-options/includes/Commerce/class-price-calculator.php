@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Price_Calculator {
 
 	/**
-	 * Supported Phase 2 field types.
+	 * Supported Phase 2 & Phase 4 field types.
 	 */
 	const SUPPORTED_TYPES = array(
 		'text',
@@ -26,6 +26,8 @@ class Price_Calculator {
 		'radio',
 		'checkbox',
 		'date',
+		'multiselect',
+		'imageselect',
 	);
 
 	/**
@@ -57,6 +59,50 @@ class Price_Calculator {
 				continue;
 			}
 
+			$sec_mode  = isset( $section['selection_mode'] ) ? $section['selection_mode'] : 'multiple';
+			$sec_title = ! empty( $section['title'] ) ? $section['title'] : __( 'this section', 'simple-custom-product-options' );
+
+			if ( 'single' === $sec_mode ) {
+				// Count active fields with non-empty selected values in this section
+				$active_selected_fields = 0;
+				foreach ( $section['fields'] as $chk_fld ) {
+					if ( ! Condition_Engine::is_field_active( $chk_fld, $submitted_fields ) ) {
+						continue;
+					}
+					$chk_id  = $chk_fld['id'];
+					$chk_val = isset( $submitted_fields[ $chk_id ] ) ? $submitted_fields[ $chk_id ] : null;
+					$is_field_selected = false;
+
+					if ( is_array( $chk_val ) ) {
+						$filt = array_filter( $chk_val, function( $v ) { return '' !== trim( (string) $v ); } );
+						if ( ! empty( $filt ) ) {
+							$is_field_selected = true;
+						}
+					} elseif ( ! is_null( $chk_val ) && '' !== trim( (string) $chk_val ) ) {
+						$chk_type = isset( $chk_fld['type'] ) ? $chk_fld['type'] : 'text';
+						if ( 'checkbox' === $chk_type ) {
+							$unchecked_val = isset( $chk_fld['unchecked_value'] ) ? $chk_fld['unchecked_value'] : 'no';
+							if ( (string) $chk_val !== (string) $unchecked_val ) {
+								$is_field_selected = true;
+							}
+						} else {
+							$is_field_selected = true;
+						}
+					}
+
+					if ( $is_field_selected ) {
+						$active_selected_fields++;
+					}
+				}
+
+				if ( $active_selected_fields > 1 ) {
+					return new WP_Error(
+						'scpo_single_choice_violation',
+						sprintf( __( 'Please select only one option in "%s".', 'simple-custom-product-options' ), $sec_title )
+					);
+				}
+			}
+
 			foreach ( $section['fields'] as $field ) {
 				// Server-side conditional evaluation: inactive fields are ignored,
 				// their values do not contribute to price/fees, and inactive required fields do not block submission.
@@ -72,8 +118,15 @@ class Price_Calculator {
 
 				// 1. Missing required field validation.
 				$is_empty = false;
-				if ( is_null( $raw_val ) || '' === $raw_val || ( is_array( $raw_val ) && empty( $raw_val ) ) ) {
+				if ( is_null( $raw_val ) || '' === $raw_val ) {
 					$is_empty = true;
+				} elseif ( is_array( $raw_val ) ) {
+					$filtered_arr = array_filter( $raw_val, function( $v ) {
+						return '' !== trim( (string) $v );
+					} );
+					if ( empty( $filtered_arr ) ) {
+						$is_empty = true;
+					}
 				} elseif ( 'checkbox' === $field_type ) {
 					// For checkbox, missing or unchecked_value is considered empty if required.
 					$unchecked_val = isset( $field['unchecked_value'] ) ? $field['unchecked_value'] : 'no';
@@ -188,6 +241,180 @@ class Price_Calculator {
 
 						$display_value = isset( $matched_option['label'] ) ? $matched_option['label'] : $sanitized_value;
 						$field_addon   = isset( $matched_option['price'] ) ? (float) $matched_option['price'] : 0.0;
+						if ( 0.0 === $field_addon && 'fixed' === $pricing_mode && $pricing_amount > 0 ) {
+							$field_addon = $pricing_amount;
+						}
+						break;
+
+					case 'multiselect':
+						$raw_choice_ids = array();
+						if ( is_array( $raw_val ) ) {
+							$raw_choice_ids = $raw_val;
+						} elseif ( is_string( $raw_val ) ) {
+							$trimmed = trim( $raw_val );
+							if ( '' !== $trimmed ) {
+								$raw_choice_ids = array_map( 'trim', explode( ',', $trimmed ) );
+							}
+						}
+
+						$allowed_options = isset( $field['options'] ) && is_array( $field['options'] ) ? $field['options'] : array();
+						$allowed_map     = array();
+						foreach ( $allowed_options as $opt ) {
+							if ( isset( $opt['id'] ) ) {
+								$allowed_map[ $opt['id'] ] = $opt;
+							}
+						}
+
+						$valid_choice_ids  = array();
+						$display_labels    = array();
+						$choice_snapshots  = array();
+						$multi_sum         = 0.0;
+						$seen_selected_opt = array();
+
+						foreach ( $raw_choice_ids as $c_id ) {
+							$clean_c_id = sanitize_key( $c_id );
+							if ( '' === $clean_c_id ) {
+								continue;
+							}
+
+							if ( ! isset( $allowed_map[ $clean_c_id ] ) ) {
+								/* translators: %s: Field label */
+								return new WP_Error(
+									'scpo_invalid_option_choice',
+									sprintf( __( 'Selected option for "%s" is invalid.', 'simple-custom-product-options' ), $label )
+								);
+							}
+
+							// Prevent duplicate choice ID summation: sum each selected adjustment exactly once
+							if ( isset( $seen_selected_opt[ $clean_c_id ] ) ) {
+								continue;
+							}
+							$seen_selected_opt[ $clean_c_id ] = true;
+
+							$opt_data     = $allowed_map[ $clean_c_id ];
+							$choice_price = isset( $opt_data['price'] ) ? (float) $opt_data['price'] : 0.0;
+							$choice_label = isset( $opt_data['label'] ) ? $opt_data['label'] : $clean_c_id;
+
+							$valid_choice_ids[] = $clean_c_id;
+							$display_labels[]   = $choice_label;
+							$choice_snapshots[] = array(
+								'id'    => $clean_c_id,
+								'label' => $choice_label,
+								'price' => $choice_price,
+							);
+							$multi_sum += $choice_price;
+						}
+
+						if ( $required && empty( $valid_choice_ids ) ) {
+							/* translators: %s: Field label */
+							return new WP_Error(
+								'scpo_missing_required',
+								sprintf( __( '"%s" is a required option.', 'simple-custom-product-options' ), $label )
+							);
+						}
+
+						if ( 'single' === $sec_mode && count( $valid_choice_ids ) > 1 ) {
+							return new WP_Error(
+								'scpo_single_choice_violation',
+								sprintf( __( 'Please select only one option in "%s".', 'simple-custom-product-options' ), $sec_title )
+							);
+						}
+
+						$sanitized_value = $valid_choice_ids;
+						$display_value   = implode( ', ', $display_labels );
+						$field_addon     = $multi_sum;
+						break;
+
+					case 'imageselect':
+						$allowed_options = isset( $field['options'] ) && is_array( $field['options'] ) ? $field['options'] : array();
+						$allowed_map     = array();
+						foreach ( $allowed_options as $opt ) {
+							if ( isset( $opt['id'] ) ) {
+								$allowed_map[ $opt['id'] ] = $opt;
+							}
+						}
+
+						// Handle both array submission (multi-choice) and scalar submission
+						$raw_image_choices = array();
+						if ( is_array( $raw_val ) ) {
+							$raw_image_choices = array_values( array_filter( array_map( 'sanitize_key', $raw_val ) ) );
+						} elseif ( is_string( $raw_val ) && '' !== trim( $raw_val ) ) {
+							$raw_image_choices = array( sanitize_key( $raw_val ) );
+						}
+
+						if ( 'single' === $sec_mode && count( $raw_image_choices ) > 1 ) {
+							return new WP_Error(
+								'scpo_single_choice_violation',
+								sprintf( __( 'Please select only one option in "%s".', 'simple-custom-product-options' ), $sec_title )
+							);
+						}
+
+						if ( empty( $raw_image_choices ) ) {
+							if ( $required ) {
+								return new WP_Error(
+									'scpo_missing_required',
+									sprintf( __( '"%s" is a required option.', 'simple-custom-product-options' ), $label )
+								);
+							}
+							break;
+						}
+
+						if ( 'single' === $sec_mode || count( $raw_image_choices ) === 1 ) {
+							$single_id = $raw_image_choices[0];
+							if ( ! isset( $allowed_map[ $single_id ] ) ) {
+								return new WP_Error(
+									'scpo_invalid_option_choice',
+									sprintf( __( 'Selected option for "%s" is invalid.', 'simple-custom-product-options' ), $label )
+								);
+							}
+							$matched_option  = $allowed_map[ $single_id ];
+							$sanitized_value = $single_id;
+							$display_value   = isset( $matched_option['label'] ) ? $matched_option['label'] : $single_id;
+							$field_addon     = isset( $matched_option['price'] ) ? (float) $matched_option['price'] : 0.0;
+							if ( 0.0 === $field_addon && 'fixed' === $pricing_mode && $pricing_amount > 0 ) {
+								$field_addon = $pricing_amount;
+							}
+						} else {
+							// Multiple image choices selected
+							$valid_choices     = array();
+							$display_labels    = array();
+							$img_choice_snaps  = array();
+							$img_sum           = 0.0;
+							$seen_opts         = array();
+
+							foreach ( $raw_image_choices as $c_id ) {
+								if ( ! isset( $allowed_map[ $c_id ] ) ) {
+									return new WP_Error(
+										'scpo_invalid_option_choice',
+										sprintf( __( 'Selected option for "%s" is invalid.', 'simple-custom-product-options' ), $label )
+									);
+								}
+								if ( isset( $seen_opts[ $c_id ] ) ) {
+									continue;
+								}
+								$seen_opts[ $c_id ] = true;
+
+								$opt_data     = $allowed_map[ $c_id ];
+								$choice_price = isset( $opt_data['price'] ) ? (float) $opt_data['price'] : 0.0;
+								$choice_label = isset( $opt_data['label'] ) ? $opt_data['label'] : $c_id;
+
+								$valid_choices[]    = $c_id;
+								$display_labels[]   = $choice_label;
+								$img_choice_snaps[] = array(
+									'id'        => $c_id,
+									'label'     => $choice_label,
+									'price'     => $choice_price,
+									'image_id'  => isset( $opt_data['image_id'] ) ? absint( $opt_data['image_id'] ) : 0,
+									'image_url' => isset( $opt_data['image_url'] ) ? $opt_data['image_url'] : '',
+								);
+								$img_sum += $choice_price;
+							}
+
+							$sanitized_value = $valid_choices;
+							$display_value   = implode( ', ', $display_labels );
+							$field_addon     = $img_sum;
+							$matched_option  = ! empty( $valid_choices ) ? $allowed_map[ $valid_choices[0] ] : null;
+						}
 						break;
 
 					case 'checkbox':
@@ -246,7 +473,7 @@ class Price_Calculator {
 					$unit_addon_sum += (float) $field_addon;
 				}
 
-				$parsed_options[] = array(
+				$parsed_option_item = array(
 					'field_id'         => $field_id,
 					'type'             => $field_type,
 					'label'            => $label,
@@ -257,6 +484,21 @@ class Price_Calculator {
 					'price_adjustment' => (float) $field_addon,
 					'is_one_time_fee'  => $is_one_time,
 				);
+
+				if ( 'multiselect' === $field_type ) {
+					$parsed_option_item['choices'] = isset( $choice_snapshots ) ? $choice_snapshots : array();
+				} elseif ( 'imageselect' === $field_type ) {
+					if ( isset( $img_choice_snaps ) && ! empty( $img_choice_snaps ) ) {
+						$parsed_option_item['choices'] = $img_choice_snaps;
+					}
+					if ( isset( $matched_option ) ) {
+						$parsed_option_item['image_id']  = isset( $matched_option['image_id'] ) ? absint( $matched_option['image_id'] ) : 0;
+						$parsed_option_item['image_url'] = isset( $matched_option['image_url'] ) ? esc_url_raw( $matched_option['image_url'] ) : '';
+						$parsed_option_item['alt']       = isset( $matched_option['alt'] ) ? sanitize_text_field( $matched_option['alt'] ) : '';
+					}
+				}
+
+				$parsed_options[] = $parsed_option_item;
 			}
 		}
 

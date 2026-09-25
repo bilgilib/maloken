@@ -27,6 +27,22 @@
 			if ($row.hasClass('scpo-field-type-select')) {
 				return $row.find('select').val() || '';
 			}
+			if ($row.hasClass('scpo-field-type-multiselect')) {
+				var msVals = [];
+				$row.find('input[type="checkbox"]:checked').each(function() {
+					msVals.push($(this).val());
+				});
+				return msVals.join(',');
+			}
+			if ($row.hasClass('scpo-field-type-imageselect')) {
+				var $checkedImg = $row.find('input[type="radio"]:checked');
+				if ($checkedImg.length) return $checkedImg.val();
+				var imgVals = [];
+				$row.find('input[type="checkbox"]:checked').each(function() {
+					imgVals.push($(this).val());
+				});
+				return imgVals.join(',');
+			}
 			return $row.find('input, textarea').val() || '';
 		}
 
@@ -164,6 +180,31 @@
 						totalOptionDelta += radioPrice;
 					}
 				}
+				// Multi-select
+				else if ($row.hasClass('scpo-field-type-multiselect')) {
+					$row.find('input[type="checkbox"]:checked').each(function() {
+						var msPrice = parseFloat($(this).data('price')) || 0;
+						totalOptionDelta += msPrice;
+					});
+				}
+				// Image Select
+				else if ($row.hasClass('scpo-field-type-imageselect')) {
+					var $checkedImage = $row.find('input[type="radio"]:checked');
+					if ($checkedImage.length) {
+						var imgPrice = parseFloat($checkedImage.data('price')) || 0;
+						totalOptionDelta += imgPrice;
+					}
+					$row.find('input[type="checkbox"]:checked').each(function() {
+						var boxPrice = parseFloat($(this).data('price')) || 0;
+						totalOptionDelta += boxPrice;
+					});
+					// Visual selection class on cards
+					$row.find('.scpo-image-choice-card').each(function() {
+						var $card = $(this);
+						var isChecked = $card.find('input').is(':checked');
+						$card.toggleClass('is-selected', isChecked);
+					});
+				}
 				// Text / Textarea
 				else if ($row.hasClass('scpo-field-type-text') || $row.hasClass('scpo-field-type-textarea')) {
 					var val = $row.find('input, textarea').val() || '';
@@ -197,6 +238,29 @@
 		// Bind events to all input modifications
 		$wrapper.on('change input', 'input, select, textarea', function() {
 			recalculateLivePrice();
+		});
+
+		// Keyboard accessibility for image choice cards (Space or Enter to select/toggle)
+		$wrapper.on('keydown', '.scpo-image-choice-card', function(e) {
+			if (e.key === ' ' || e.key === 'Enter') {
+				e.preventDefault();
+				var $input = $(this).find('input[type="radio"], input[type="checkbox"]');
+				if ($input.attr('type') === 'checkbox') {
+					$input.prop('checked', !$input.prop('checked')).trigger('change');
+				} else {
+					$input.prop('checked', true).trigger('change');
+				}
+			}
+		});
+
+		// Single-choice section enforcement on frontend:
+		// If a section is in single-choice mode, selecting a choice deselects other sibling choices in the section
+		$wrapper.on('change', '.scpo-section[data-selection-mode="single"] input[type="checkbox"]', function() {
+			if ($(this).is(':checked')) {
+				var $sec = $(this).closest('.scpo-section');
+				$sec.find('input[type="checkbox"]').not(this).prop('checked', false);
+				recalculateLivePrice();
+			}
 		});
 
 		// Initial evaluation and calculation on load
