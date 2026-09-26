@@ -359,6 +359,7 @@
 
 			schema.sections.forEach(function(section, sIdx) {
 				section = normalizeSection(section);
+				schema.sections[sIdx] = section;
 				var layoutMode = normalizeSectionLayoutMode(section.layout_mode);
 				var alignment = normalizeSectionAlignment(section.alignment);
 				var isSecSelected = activeSelection && activeSelection.type === 'section' && activeSelection.secId === section.id;
