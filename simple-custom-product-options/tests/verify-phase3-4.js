@@ -108,6 +108,29 @@ function normalizeSectionAlignment(value) {
   return ['left', 'center', 'right'].includes(normalized) ? normalized : 'left';
 }
 
+function normalizeSection(section) {
+  return {
+    ...section,
+    layout_mode: normalizeSectionLayoutMode(section.layout_mode),
+    alignment: normalizeSectionAlignment(section.alignment)
+  };
+}
+
+function initializeAdminSchema(parsedSchema) {
+  return {
+    ...parsedSchema,
+    sections: Array.isArray(parsedSchema.sections) ? parsedSchema.sections.map(normalizeSection) : []
+  };
+}
+
+function syncJsonToSchema(rawJson) {
+  const parsedSchema = JSON.parse(rawJson);
+  if (!parsedSchema || !Array.isArray(parsedSchema.sections)) {
+    return parsedSchema;
+  }
+  return initializeAdminSchema(parsedSchema);
+}
+
 // Case A: Existing schema without selection_mode defaults to "multiple"
 const legacySection = { id: 'sec_legacy', title: 'Color Options', fields: [] };
 const sanitizedLegacy = sanitizeSection(legacySection, 0);
@@ -146,6 +169,12 @@ assert(normalizeSectionLayoutMode('CUSTOM') === 'custom', 'Admin JS normalizes l
 assert(normalizeSectionLayoutMode('stacked') === 'default', 'Admin JS falls back invalid layout mode to "default"');
 assert(normalizeSectionAlignment('RIGHT') === 'right', 'Admin JS normalizes alignment case-insensitively');
 assert(normalizeSectionAlignment('justify') === 'left', 'Admin JS falls back invalid alignment to "left"');
+const initializedSchema = initializeAdminSchema({ sections: [{ id: 'sec_init', title: 'Init', fields: [] }] });
+assert(initializedSchema.sections[0].layout_mode === 'default', 'Admin init path injects default layout_mode into legacy section state');
+assert(initializedSchema.sections[0].alignment === 'left', 'Admin init path injects default alignment into legacy section state');
+const syncedSchema = syncJsonToSchema(JSON.stringify({ sections: [{ id: 'sec_sync', title: 'Sync', layout_mode: 'STACKED', alignment: 'JUSTIFY', fields: [] }] }));
+assert(syncedSchema.sections[0].layout_mode === 'default', 'Admin JSON sync path normalizes invalid layout_mode before storing schema');
+assert(syncedSchema.sections[0].alignment === 'left', 'Admin JSON sync path normalizes invalid alignment before storing schema');
 
 // -------------------------------------------------------------
 // 3. AUTHORITATIVE PHP VALIDATION ENGINE (Price_Calculator)

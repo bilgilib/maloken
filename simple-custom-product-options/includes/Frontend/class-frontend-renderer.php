@@ -333,7 +333,7 @@ class Frontend_Renderer {
 		$aria_lbl     = ! empty( $section['title'] ) ? ' aria-label="' . esc_attr( $section['title'] ) . '"' : '';
 		$align_style  = ( 'default' === $layout_mode ) ? ' style="text-align:' . esc_attr( $alignment ) . ';"' : '';
 
-		echo '<div class="scpo-section scpo-section-mode-' . esc_attr( $sec_mode ) . ' scpo-section-layout-' . esc_attr( $layout_mode ) . ' scpo-section-align-' . esc_attr( $alignment ) . '" id="scpo-sec-' . esc_attr( $sec_id ) . '" data-section-id="' . esc_attr( $sec_id ) . '" data-selection-mode="' . esc_attr( $sec_mode ) . '" data-layout-mode="' . esc_attr( $layout_mode ) . '" data-alignment="' . esc_attr( $alignment ) . '" role="' . esc_attr( $role_attr ) . '"' . $aria_lbl . $align_style . '>';
+		echo '<div class="scpo-section scpo-section-mode-' . esc_attr( $sec_mode ) . '" id="scpo-sec-' . esc_attr( $sec_id ) . '" data-section-id="' . esc_attr( $sec_id ) . '" data-selection-mode="' . esc_attr( $sec_mode ) . '" data-layout-mode="' . esc_attr( $layout_mode ) . '" data-alignment="' . esc_attr( $alignment ) . '" role="' . esc_attr( $role_attr ) . '"' . $aria_lbl . '>';
 		if ( ! empty( $section['title'] ) ) {
 			echo '<h4 class="scpo-section-title">' . esc_html( $section['title'] ) . '</h4>';
 		}
@@ -341,9 +341,11 @@ class Frontend_Renderer {
 			echo '<p class="scpo-section-description">' . esc_html( $section['description'] ) . '</p>';
 		}
 
+		echo '<div class="scpo-section-fields scpo-section-layout-' . esc_attr( $layout_mode ) . ' scpo-section-align-' . esc_attr( $alignment ) . '" data-layout-mode="' . esc_attr( $layout_mode ) . '" data-alignment="' . esc_attr( $alignment ) . '"' . $align_style . '>';
 		foreach ( $section['fields'] as $field ) {
 			$this->render_field( $field, $section );
 		}
+		echo '</div>';
 
 		echo '</div>';
 	}

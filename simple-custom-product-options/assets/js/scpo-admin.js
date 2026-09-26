@@ -221,9 +221,15 @@
 			if (!section || typeof section !== 'object') {
 				return section;
 			}
-			section.layout_mode = normalizeSectionLayoutMode(section.layout_mode);
-			section.alignment = normalizeSectionAlignment(section.alignment);
-			return section;
+			var normalized = {};
+			for (var key in section) {
+				if (Object.prototype.hasOwnProperty.call(section, key)) {
+					normalized[key] = section[key];
+				}
+			}
+			normalized.layout_mode = normalizeSectionLayoutMode(section.layout_mode);
+			normalized.alignment = normalizeSectionAlignment(section.alignment);
+			return normalized;
 		}
 
 		function findSection(secId) {
@@ -1640,12 +1646,16 @@
 				var secMode = sec.selection_mode || 'multiple';
 				var layoutMode = normalizeSectionLayoutMode(sec.layout_mode);
 				var alignment = normalizeSectionAlignment(sec.alignment);
-				s.className = 'scpo-section scpo-section-mode-' + secMode + ' scpo-section-layout-' + layoutMode + ' scpo-section-align-' + alignment;
+				var fieldsWrap = document.createElement('div');
+				s.className = 'scpo-section scpo-section-mode-' + secMode;
 				s.setAttribute('data-selection-mode', secMode);
 				s.setAttribute('data-layout-mode', layoutMode);
 				s.setAttribute('data-alignment', alignment);
+				fieldsWrap.className = 'scpo-section-fields scpo-section-layout-' + layoutMode + ' scpo-section-align-' + alignment;
+				fieldsWrap.setAttribute('data-layout-mode', layoutMode);
+				fieldsWrap.setAttribute('data-alignment', alignment);
 				if (layoutMode === 'default') {
-					s.style.textAlign = alignment;
+					fieldsWrap.style.textAlign = alignment;
 				}
 				if (sec.title) {
 					var st = document.createElement('h4');
@@ -1749,9 +1759,10 @@
 							}
 						}
 
-						s.appendChild(row);
+						fieldsWrap.appendChild(row);
 					});
 				}
+				s.appendChild(fieldsWrap);
 				wrapper.appendChild(s);
 			});
 
