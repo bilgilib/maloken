@@ -353,19 +353,21 @@
 
 			schema.sections.forEach(function(section, sIdx) {
 				section = normalizeSection(section);
+				var layoutMode = normalizeSectionLayoutMode(section.layout_mode);
+				var alignment = normalizeSectionAlignment(section.alignment);
 				var isSecSelected = activeSelection && activeSelection.type === 'section' && activeSelection.secId === section.id;
 				var secCard = document.createElement('div');
 				secCard.className = 'scpo-section-card' + (isSecSelected ? ' selected' : '');
 				secCard.setAttribute('draggable', 'true'); // draggable="true"
 				secCard.setAttribute('data-sec-id', section.id);
 				secCard.setAttribute('data-sec-idx', String(sIdx));
+				secCard.setAttribute('data-layout-mode', layoutMode);
+				secCard.setAttribute('data-alignment', alignment);
 
 				// Section Header
 				var secHeader = document.createElement('div');
 				secHeader.className = 'scpo-section-header';
 				var secMode = section.selection_mode || 'multiple';
-				var layoutMode = normalizeSectionLayoutMode(section.layout_mode);
-				var alignment = normalizeSectionAlignment(section.alignment);
 				var alignSelectId = 'scpo-sec-align-' + section.id;
 				secHeader.innerHTML =
 					'<div class="scpo-section-title-wrap">' +
@@ -855,9 +857,11 @@
 				var secCardAlign = e.target.closest('.scpo-section-card');
 				if (secCardAlign) {
 					var secIdAlign = secCardAlign.getAttribute('data-sec-id');
+					var alignmentValue = normalizeSectionAlignment(e.target.value);
+					secCardAlign.setAttribute('data-alignment', alignmentValue);
 					updateSectionAndRefresh(secIdAlign, function(secAlignObj) {
-						secAlignObj.alignment = normalizeSectionAlignment(e.target.value);
-					}, true);
+						secAlignObj.alignment = alignmentValue;
+					}, false);
 				}
 			}
 		});
