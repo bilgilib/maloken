@@ -127,6 +127,12 @@ const sanitizedCustom = sanitizeSection(customLayout, 0);
 assert(sanitizedCustom.layout_mode === 'custom', 'Sanitizer preserves explicit "custom" layout mode');
 assert(sanitizedCustom.alignment === 'center', 'Sanitizer preserves explicit valid alignment');
 
+// Case G: Invalid layout values fall back safely
+const invalidLayout = { id: 'sec_invalid_layout', title: 'Fallbacks', layout_mode: 'stacked', alignment: 'justify', fields: [] };
+const sanitizedInvalidLayout = sanitizeSection(invalidLayout, 0);
+assert(sanitizedInvalidLayout.layout_mode === 'default', 'Sanitizer normalizes invalid layout mode back to "default"');
+assert(sanitizedInvalidLayout.alignment === 'left', 'Sanitizer normalizes invalid alignment back to "left"');
+
 // -------------------------------------------------------------
 // 3. AUTHORITATIVE PHP VALIDATION ENGINE (Price_Calculator)
 // -------------------------------------------------------------

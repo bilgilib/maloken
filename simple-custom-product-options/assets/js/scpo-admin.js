@@ -851,6 +851,7 @@
 						secAlignObj.alignment = normalizeSectionAlignment(e.target.value);
 						isDirty = true;
 						syncSchemaToJson();
+						renderBuilderCanvas();
 						renderLivePreview();
 					}
 				}
