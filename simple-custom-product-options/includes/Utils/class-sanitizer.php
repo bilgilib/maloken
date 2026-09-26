@@ -126,10 +126,28 @@ class Sanitizer {
 				}
 			}
 
+			$layout_mode = 'default';
+			if ( isset( $section['layout_mode'] ) ) {
+				$raw_layout_mode = sanitize_key( $section['layout_mode'] );
+				if ( in_array( $raw_layout_mode, array( 'default', 'custom' ), true ) ) {
+					$layout_mode = $raw_layout_mode;
+				}
+			}
+
+			$alignment = 'left';
+			if ( isset( $section['alignment'] ) ) {
+				$raw_alignment = sanitize_key( $section['alignment'] );
+				if ( in_array( $raw_alignment, array( 'left', 'center', 'right' ), true ) ) {
+					$alignment = $raw_alignment;
+				}
+			}
+
 			$sanitized_section = array(
 				'id'             => $sec_id,
 				'title'          => isset( $section['title'] ) ? sanitize_text_field( $section['title'] ) : '',
 				'description'    => isset( $section['description'] ) ? sanitize_textarea_field( $section['description'] ) : '',
+				'layout_mode'    => $layout_mode,
+				'alignment'      => $alignment,
 				'selection_mode' => $sec_mode,
 				'order'          => isset( $section['order'] ) ? absint( $section['order'] ) : ( $sec_index + 1 ),
 				'fields'         => array(),

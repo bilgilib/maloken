@@ -323,12 +323,17 @@ class Frontend_Renderer {
 			return;
 		}
 
-		$sec_mode  = isset( $section['selection_mode'] ) ? $section['selection_mode'] : 'multiple';
-		$sec_id    = $section['id'];
-		$role_attr = ( 'single' === $sec_mode ) ? 'radiogroup' : 'group';
-		$aria_lbl  = ! empty( $section['title'] ) ? ' aria-label="' . esc_attr( $section['title'] ) . '"' : '';
+		$sec_mode     = isset( $section['selection_mode'] ) ? $section['selection_mode'] : 'multiple';
+		$sec_id       = $section['id'];
+		$layout_mode  = isset( $section['layout_mode'] ) ? sanitize_key( $section['layout_mode'] ) : 'default';
+		$layout_mode  = in_array( $layout_mode, array( 'default', 'custom' ), true ) ? $layout_mode : 'default';
+		$alignment    = isset( $section['alignment'] ) ? sanitize_key( $section['alignment'] ) : 'left';
+		$alignment    = in_array( $alignment, array( 'left', 'center', 'right' ), true ) ? $alignment : 'left';
+		$role_attr    = ( 'single' === $sec_mode ) ? 'radiogroup' : 'group';
+		$aria_lbl     = ! empty( $section['title'] ) ? ' aria-label="' . esc_attr( $section['title'] ) . '"' : '';
+		$align_style  = ( 'default' === $layout_mode ) ? ' style="text-align:' . esc_attr( $alignment ) . ';"' : '';
 
-		echo '<div class="scpo-section scpo-section-mode-' . esc_attr( $sec_mode ) . '" id="scpo-sec-' . esc_attr( $sec_id ) . '" data-section-id="' . esc_attr( $sec_id ) . '" data-selection-mode="' . esc_attr( $sec_mode ) . '" role="' . esc_attr( $role_attr ) . '"' . $aria_lbl . '>';
+		echo '<div class="scpo-section scpo-section-mode-' . esc_attr( $sec_mode ) . ' scpo-section-layout-' . esc_attr( $layout_mode ) . ' scpo-section-align-' . esc_attr( $alignment ) . '" id="scpo-sec-' . esc_attr( $sec_id ) . '" data-section-id="' . esc_attr( $sec_id ) . '" data-selection-mode="' . esc_attr( $sec_mode ) . '" data-layout-mode="' . esc_attr( $layout_mode ) . '" data-alignment="' . esc_attr( $alignment ) . '" role="' . esc_attr( $role_attr ) . '"' . $aria_lbl . $align_style . '>';
 		if ( ! empty( $section['title'] ) ) {
 			echo '<h4 class="scpo-section-title">' . esc_html( $section['title'] ) . '</h4>';
 		}

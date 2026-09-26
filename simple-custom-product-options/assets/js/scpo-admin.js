@@ -155,6 +155,9 @@
 
 		try {
 			schema = extractAndParseConfig(jsonTextarea);
+			if (schema && Array.isArray(schema.sections)) {
+				schema.sections = schema.sections.map(normalizeSection);
+			}
 		} catch (parseError) {
 			console.error('SCPO Visual Builder initialization failed:', parseError);
 			renderAdminError(parseError.message);
@@ -179,6 +182,7 @@
 				if (raw !== '') {
 					var p = JSON.parse(raw);
 					if (p && Array.isArray(p.sections)) {
+						p.sections = p.sections.map(normalizeSection);
 						schema = p;
 						renderBuilderCanvas();
 					}
@@ -201,6 +205,25 @@
 				'date': 'Date Picker'
 			};
 			return map[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Option');
+		}
+
+		function normalizeSectionLayoutMode(value) {
+			var normalized = value === null || value === undefined ? '' : String(value).toLowerCase();
+			return normalized === 'custom' ? 'custom' : 'default';
+		}
+
+		function normalizeSectionAlignment(value) {
+			var normalized = value === null || value === undefined ? '' : String(value).toLowerCase();
+			return ['left', 'center', 'right'].indexOf(normalized) !== -1 ? normalized : 'left';
+		}
+
+		function normalizeSection(section) {
+			if (!section || typeof section !== 'object') {
+				return section;
+			}
+			section.layout_mode = normalizeSectionLayoutMode(section.layout_mode);
+			section.alignment = normalizeSectionAlignment(section.alignment);
+			return section;
 		}
 
 		function findSection(secId) {
@@ -317,6 +340,7 @@
 			canvas.style.display = 'block';
 
 			schema.sections.forEach(function(section, sIdx) {
+				section = normalizeSection(section);
 				var isSecSelected = activeSelection && activeSelection.type === 'section' && activeSelection.secId === section.id;
 				var secCard = document.createElement('div');
 				secCard.className = 'scpo-section-card' + (isSecSelected ? ' selected' : '');
@@ -328,6 +352,8 @@
 				var secHeader = document.createElement('div');
 				secHeader.className = 'scpo-section-header';
 				var secMode = section.selection_mode || 'multiple';
+				var layoutMode = normalizeSectionLayoutMode(section.layout_mode);
+				var alignment = normalizeSectionAlignment(section.alignment);
 				secHeader.innerHTML =
 					'<div class="scpo-section-title-wrap">' +
 						'<span class="scpo-section-drag-handle" title="Drag to reorder section">☰</span>' +
@@ -335,6 +361,14 @@
 						'<span class="description" style="font-size: 11px;">(' + (section.fields ? section.fields.length : 0) + ' options)</span>' +
 					'</div>' +
 					'<div class="scpo-section-actions">' +
+						(layoutMode === 'default'
+							? '<label style="font-size: 11px; margin-right: 2px; color: #50575e;">Align:</label>' +
+								'<select class="scpo-sec-align-select" title="Align section" style="font-size: 11px; height: 26px; padding: 0 4px; margin-right: 6px;">' +
+									'<option value="left"' + (alignment === 'left' ? ' selected' : '') + '>Left</option>' +
+									'<option value="center"' + (alignment === 'center' ? ' selected' : '') + '>Center</option>' +
+									'<option value="right"' + (alignment === 'right' ? ' selected' : '') + '>Right</option>' +
+								'</select>'
+							: '') +
 						'<label style="font-size: 11px; margin-right: 2px; color: #50575e;">Selection mode:</label>' +
 						'<select class="scpo-sec-mode-select" title="Selection mode" style="font-size: 11px; height: 26px; padding: 0 4px; margin-right: 6px;">' +
 							'<option value="multiple"' + (secMode === 'single' ? '' : ' selected') + '>Multiple choices</option>' +
@@ -517,6 +551,8 @@
 				id: generateStableId('sec'),
 				title: 'New Section',
 				description: '',
+				layout_mode: 'default',
+				alignment: 'left',
 				order: schema.sections.length + 1,
 				fields: []
 			};
@@ -800,6 +836,19 @@
 					var secModeObj = findSection(secIdMode);
 					if (secModeObj) {
 						secModeObj.selection_mode = e.target.value;
+						isDirty = true;
+						syncSchemaToJson();
+						renderLivePreview();
+					}
+				}
+			}
+			if (e.target.classList && e.target.classList.contains('scpo-sec-align-select')) {
+				var secCardAlign = e.target.closest('.scpo-section-card');
+				if (secCardAlign) {
+					var secIdAlign = secCardAlign.getAttribute('data-sec-id');
+					var secAlignObj = findSection(secIdAlign);
+					if (secAlignObj) {
+						secAlignObj.alignment = normalizeSectionAlignment(e.target.value);
 						isDirty = true;
 						syncSchemaToJson();
 						renderLivePreview();
@@ -1577,10 +1626,18 @@
 			wrapper.setAttribute('style', 'background:#fff; border:1px solid #dcdcde;');
 
 			schema.sections.forEach(function(sec) {
+				sec = normalizeSection(sec);
 				var s = document.createElement('div');
 				var secMode = sec.selection_mode || 'multiple';
+				var layoutMode = normalizeSectionLayoutMode(sec.layout_mode);
+				var alignment = normalizeSectionAlignment(sec.alignment);
 				s.className = 'scpo-section scpo-section-mode-' + secMode;
 				s.setAttribute('data-selection-mode', secMode);
+				s.setAttribute('data-layout-mode', layoutMode);
+				s.setAttribute('data-alignment', alignment);
+				if (layoutMode === 'default') {
+					s.style.textAlign = alignment;
+				}
 				if (sec.title) {
 					var st = document.createElement('h4');
 					st.className = 'scpo-section-title';
