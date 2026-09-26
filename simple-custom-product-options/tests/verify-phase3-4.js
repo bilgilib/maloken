@@ -59,7 +59,6 @@ const appTsx = fs.readFileSync(path.resolve(__dirname, '../../src/App.tsx'), 'ut
 
 assert(sanitizerCode.includes('selection_mode'), 'class-sanitizer.php preserves selection_mode');
 assert(sanitizerCode.includes("'single'") && sanitizerCode.includes("'multiple'"), 'class-sanitizer.php validates single and multiple selection modes');
-
 assert(calcCode.includes('scpo_single_choice_violation'), 'class-price-calculator.php defines safe single choice violation error');
 assert(calcCode.includes('active_selected_fields'), 'class-price-calculator.php counts active selected options in single-choice section');
 assert(calcCode.includes('raw_image_choices'), 'class-price-calculator.php supports multiple image choice array parsing');

@@ -155,6 +155,9 @@
 
 		try {
 			schema = extractAndParseConfig(jsonTextarea);
+			if (schema && Array.isArray(schema.sections)) {
+				schema.sections = schema.sections.map(normalizeSection);
+			}
 		} catch (parseError) {
 			console.error('SCPO Visual Builder initialization failed:', parseError);
 			renderAdminError(parseError.message);
@@ -179,6 +182,7 @@
 				if (raw !== '') {
 					var p = JSON.parse(raw);
 					if (p && Array.isArray(p.sections)) {
+						p.sections = p.sections.map(normalizeSection);
 						schema = p;
 						renderBuilderCanvas();
 					}
@@ -203,6 +207,45 @@
 			return map[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Option');
 		}
 
+		function normalizeSectionLayoutMode(value) {
+			var normalized = value === null || value === undefined ? '' : String(value).toLowerCase();
+			return normalized === 'custom' ? 'custom' : 'default';
+		}
+
+		function normalizeSectionAlignment(value) {
+			var normalized = value === null || value === undefined ? '' : String(value).toLowerCase();
+			return ['left', 'center', 'right'].indexOf(normalized) !== -1 ? normalized : 'left';
+		}
+
+		function normalizeSection(section) {
+			if (!section || typeof section !== 'object') {
+				return section;
+			}
+			var normalized = {};
+			for (var key in section) {
+				if (Object.prototype.hasOwnProperty.call(section, key)) {
+					normalized[key] = section[key];
+				}
+			}
+			normalized.layout_mode = normalizeSectionLayoutMode(section.layout_mode);
+			normalized.alignment = normalizeSectionAlignment(section.alignment);
+			return normalized;
+		}
+
+		function getAlignedRowSelf(alignment) {
+			if (alignment === 'center') return 'center';
+			if (alignment === 'right') return 'flex-end';
+			return 'flex-start';
+		}
+
+		function applyPreviewRowAlignment(row, fieldType, alignment, layoutMode) {
+			if (!row || layoutMode !== 'default') return;
+			if (['select', 'radio', 'checkbox', 'multiselect', 'imageselect'].indexOf(fieldType) === -1) return;
+			row.style.width = '100%';
+			row.style.maxWidth = '420px';
+			row.style.alignSelf = getAlignedRowSelf(alignment);
+		}
+
 		function findSection(secId) {
 			if (!schema || !schema.sections) return null;
 			return schema.sections.find(function(s) { return s.id === secId; });
@@ -212,6 +255,18 @@
 			var sec = findSection(secId);
 			if (!sec || !sec.fields) return null;
 			return sec.fields.find(function(f) { return f.id === fldId; });
+		}
+
+		function updateSectionAndRefresh(secId, updater, rerenderBuilder) {
+			var sec = findSection(secId);
+			if (!sec || typeof updater !== 'function') return;
+			updater(sec);
+			isDirty = true;
+			syncSchemaToJson();
+			if (rerenderBuilder) {
+				renderBuilderCanvas();
+			}
+			renderLivePreview();
 		}
 
 		// 1. Tab Navigation
@@ -317,17 +372,24 @@
 			canvas.style.display = 'block';
 
 			schema.sections.forEach(function(section, sIdx) {
+				section = normalizeSection(section);
+				schema.sections[sIdx] = section;
+				var layoutMode = normalizeSectionLayoutMode(section.layout_mode);
+				var alignment = normalizeSectionAlignment(section.alignment);
 				var isSecSelected = activeSelection && activeSelection.type === 'section' && activeSelection.secId === section.id;
 				var secCard = document.createElement('div');
 				secCard.className = 'scpo-section-card' + (isSecSelected ? ' selected' : '');
 				secCard.setAttribute('draggable', 'true'); // draggable="true"
 				secCard.setAttribute('data-sec-id', section.id);
 				secCard.setAttribute('data-sec-idx', String(sIdx));
+				secCard.setAttribute('data-layout-mode', layoutMode);
+				secCard.setAttribute('data-alignment', alignment);
 
 				// Section Header
 				var secHeader = document.createElement('div');
 				secHeader.className = 'scpo-section-header';
 				var secMode = section.selection_mode || 'multiple';
+				var alignSelectId = 'scpo-sec-align-' + section.id;
 				secHeader.innerHTML =
 					'<div class="scpo-section-title-wrap">' +
 						'<span class="scpo-section-drag-handle" title="Drag to reorder section">☰</span>' +
@@ -335,6 +397,14 @@
 						'<span class="description" style="font-size: 11px;">(' + (section.fields ? section.fields.length : 0) + ' options)</span>' +
 					'</div>' +
 					'<div class="scpo-section-actions">' +
+						(layoutMode === 'default'
+							? '<label for="' + escapeHtml(alignSelectId) + '" style="font-size: 11px; margin-right: 2px; color: #50575e;">Align:</label>' +
+								'<select id="' + escapeHtml(alignSelectId) + '" class="scpo-sec-align-select" title="Align section" style="font-size: 11px; height: 26px; padding: 0 4px; margin-right: 6px;">' +
+									'<option value="left"' + (alignment === 'left' ? ' selected' : '') + '>Left</option>' +
+									'<option value="center"' + (alignment === 'center' ? ' selected' : '') + '>Center</option>' +
+									'<option value="right"' + (alignment === 'right' ? ' selected' : '') + '>Right</option>' +
+								'</select>'
+							: '') +
 						'<label style="font-size: 11px; margin-right: 2px; color: #50575e;">Selection mode:</label>' +
 						'<select class="scpo-sec-mode-select" title="Selection mode" style="font-size: 11px; height: 26px; padding: 0 4px; margin-right: 6px;">' +
 							'<option value="multiple"' + (secMode === 'single' ? '' : ' selected') + '>Multiple choices</option>' +
@@ -517,6 +587,8 @@
 				id: generateStableId('sec'),
 				title: 'New Section',
 				description: '',
+				layout_mode: 'default',
+				alignment: 'left',
 				order: schema.sections.length + 1,
 				fields: []
 			};
@@ -797,13 +869,20 @@
 				var secCardMode = e.target.closest('.scpo-section-card');
 				if (secCardMode) {
 					var secIdMode = secCardMode.getAttribute('data-sec-id');
-					var secModeObj = findSection(secIdMode);
-					if (secModeObj) {
+					updateSectionAndRefresh(secIdMode, function(secModeObj) {
 						secModeObj.selection_mode = e.target.value;
-						isDirty = true;
-						syncSchemaToJson();
-						renderLivePreview();
-					}
+					}, false);
+				}
+			}
+			if (e.target.classList && e.target.classList.contains('scpo-sec-align-select')) {
+				var secCardAlign = e.target.closest('.scpo-section-card');
+				if (secCardAlign) {
+					var secIdAlign = secCardAlign.getAttribute('data-sec-id');
+					var alignmentValue = normalizeSectionAlignment(e.target.value);
+					secCardAlign.setAttribute('data-alignment', alignmentValue);
+					updateSectionAndRefresh(secIdAlign, function(secAlignObj) {
+						secAlignObj.alignment = alignmentValue;
+					}, false);
 				}
 			}
 		});
@@ -1577,10 +1656,21 @@
 			wrapper.setAttribute('style', 'background:#fff; border:1px solid #dcdcde;');
 
 			schema.sections.forEach(function(sec) {
+				sec = normalizeSection(sec);
 				var s = document.createElement('div');
 				var secMode = sec.selection_mode || 'multiple';
+				var layoutMode = normalizeSectionLayoutMode(sec.layout_mode);
+				var alignment = normalizeSectionAlignment(sec.alignment);
+				var fieldsWrap = document.createElement('div');
 				s.className = 'scpo-section scpo-section-mode-' + secMode;
 				s.setAttribute('data-selection-mode', secMode);
+				s.setAttribute('data-layout-mode', layoutMode);
+				s.setAttribute('data-alignment', alignment);
+				fieldsWrap.className = 'scpo-section-fields scpo-section-layout-' + layoutMode + ' scpo-section-align-' + alignment;
+				fieldsWrap.setAttribute('data-layout-mode', layoutMode);
+				fieldsWrap.setAttribute('data-alignment', alignment);
+				fieldsWrap.style.display = 'flex';
+				fieldsWrap.style.flexDirection = 'column';
 				if (sec.title) {
 					var st = document.createElement('h4');
 					st.className = 'scpo-section-title';
@@ -1599,6 +1689,7 @@
 						var row = document.createElement('div');
 						row.className = 'scpo-field-row scpo-field-type-' + fld.type;
 						row.setAttribute('data-field-id', fld.id);
+						applyPreviewRowAlignment(row, fld.type, alignment, layoutMode);
 						if (fld.conditions) {
 							row.setAttribute('data-conditions', JSON.stringify(fld.conditions));
 						}
@@ -1683,9 +1774,10 @@
 							}
 						}
 
-						s.appendChild(row);
+						fieldsWrap.appendChild(row);
 					});
 				}
+				s.appendChild(fieldsWrap);
 				wrapper.appendChild(s);
 			});
 
