@@ -40,6 +40,44 @@
 	margin-bottom: 14px;
 }
 
+.scpo-section-fields {
+	display: flex;
+	flex-direction: column;
+}
+
+.scpo-section-fields[data-layout-mode="default"] .scpo-field-type-select,
+.scpo-section-fields[data-layout-mode="default"] .scpo-field-type-radio,
+.scpo-section-fields[data-layout-mode="default"] .scpo-field-type-checkbox,
+.scpo-section-fields[data-layout-mode="default"] .scpo-field-type-multiselect,
+.scpo-section-fields[data-layout-mode="default"] .scpo-field-type-imageselect {
+	width: 100%;
+	max-width: 420px;
+}
+
+.scpo-section-fields[data-layout-mode="default"][data-alignment="left"] .scpo-field-type-select,
+.scpo-section-fields[data-layout-mode="default"][data-alignment="left"] .scpo-field-type-radio,
+.scpo-section-fields[data-layout-mode="default"][data-alignment="left"] .scpo-field-type-checkbox,
+.scpo-section-fields[data-layout-mode="default"][data-alignment="left"] .scpo-field-type-multiselect,
+.scpo-section-fields[data-layout-mode="default"][data-alignment="left"] .scpo-field-type-imageselect {
+	align-self: flex-start;
+}
+
+.scpo-section-fields[data-layout-mode="default"][data-alignment="center"] .scpo-field-type-select,
+.scpo-section-fields[data-layout-mode="default"][data-alignment="center"] .scpo-field-type-radio,
+.scpo-section-fields[data-layout-mode="default"][data-alignment="center"] .scpo-field-type-checkbox,
+.scpo-section-fields[data-layout-mode="default"][data-alignment="center"] .scpo-field-type-multiselect,
+.scpo-section-fields[data-layout-mode="default"][data-alignment="center"] .scpo-field-type-imageselect {
+	align-self: center;
+}
+
+.scpo-section-fields[data-layout-mode="default"][data-alignment="right"] .scpo-field-type-select,
+.scpo-section-fields[data-layout-mode="default"][data-alignment="right"] .scpo-field-type-radio,
+.scpo-section-fields[data-layout-mode="default"][data-alignment="right"] .scpo-field-type-checkbox,
+.scpo-section-fields[data-layout-mode="default"][data-alignment="right"] .scpo-field-type-multiselect,
+.scpo-section-fields[data-layout-mode="default"][data-alignment="right"] .scpo-field-type-imageselect {
+	align-self: flex-end;
+}
+
 .scpo-field-label {
 	display: block;
 	font-weight: 600;

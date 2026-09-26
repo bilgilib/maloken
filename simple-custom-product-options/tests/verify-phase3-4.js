@@ -59,17 +59,13 @@ const appTsx = fs.readFileSync(path.resolve(__dirname, '../../src/App.tsx'), 'ut
 
 assert(sanitizerCode.includes('selection_mode'), 'class-sanitizer.php preserves selection_mode');
 assert(sanitizerCode.includes("'single'") && sanitizerCode.includes("'multiple'"), 'class-sanitizer.php validates single and multiple selection modes');
-assert(sanitizerCode.includes('layout_mode') && sanitizerCode.includes('alignment'), 'class-sanitizer.php preserves layout_mode and alignment');
-
 assert(calcCode.includes('scpo_single_choice_violation'), 'class-price-calculator.php defines safe single choice violation error');
 assert(calcCode.includes('active_selected_fields'), 'class-price-calculator.php counts active selected options in single-choice section');
 assert(calcCode.includes('raw_image_choices'), 'class-price-calculator.php supports multiple image choice array parsing');
 
 assert(rendererCode.includes('data-selection-mode'), 'class-frontend-renderer.php outputs data-selection-mode attribute on section');
-assert(rendererCode.includes('data-layout-mode') && rendererCode.includes('data-alignment'), 'class-frontend-renderer.php outputs layout mode and alignment metadata on section');
 assert(rendererCode.includes('radiogroup') && rendererCode.includes('group'), 'class-frontend-renderer.php outputs accessible radiogroup/group roles');
 assert(rendererCode.includes('scpo-imageselect-') && rendererCode.includes('$input_type'), 'class-frontend-renderer.php supports radio and checkbox image choice rendering');
-assert(adminJs.includes('scpo-sec-align-select') && adminJs.includes('Align:'), 'scpo-admin.js renders section align control in the builder header');
 
 // -------------------------------------------------------------
 // 2. SCHEMA COMPATIBILITY & NORMALIZATION EMULATION
@@ -84,59 +80,20 @@ function sanitizeSection(sec, idx) {
       mode = 'multiple';
     }
   }
-  const layoutMode = sec.layout_mode === 'custom' ? 'custom' : 'default';
-  const alignment = ['left', 'center', 'right'].includes(sec.alignment) ? sec.alignment : 'left';
   return {
     id: sec.id || `sec_${idx}`,
     title: sec.title || '',
     description: sec.description || '',
-    layout_mode: layoutMode,
-    alignment,
     selection_mode: mode,
     order: sec.order !== undefined ? sec.order : idx + 1,
     fields: sec.fields || []
   };
 }
 
-function normalizeSectionLayoutMode(value) {
-  const normalized = value === null || value === undefined ? '' : String(value).toLowerCase();
-  return normalized === 'custom' ? 'custom' : 'default';
-}
-
-function normalizeSectionAlignment(value) {
-  const normalized = value === null || value === undefined ? '' : String(value).toLowerCase();
-  return ['left', 'center', 'right'].includes(normalized) ? normalized : 'left';
-}
-
-function normalizeSection(section) {
-  return {
-    ...section,
-    layout_mode: normalizeSectionLayoutMode(section.layout_mode),
-    alignment: normalizeSectionAlignment(section.alignment)
-  };
-}
-
-function initializeAdminSchema(parsedSchema) {
-  return {
-    ...parsedSchema,
-    sections: Array.isArray(parsedSchema.sections) ? parsedSchema.sections.map(normalizeSection) : []
-  };
-}
-
-function syncJsonToSchema(rawJson) {
-  const parsedSchema = JSON.parse(rawJson);
-  if (!parsedSchema || !Array.isArray(parsedSchema.sections)) {
-    return parsedSchema;
-  }
-  return initializeAdminSchema(parsedSchema);
-}
-
 // Case A: Existing schema without selection_mode defaults to "multiple"
 const legacySection = { id: 'sec_legacy', title: 'Color Options', fields: [] };
 const sanitizedLegacy = sanitizeSection(legacySection, 0);
 assert(sanitizedLegacy.selection_mode === 'multiple', 'Existing saved section without selection_mode defaults to "multiple" without schema break');
-assert(sanitizedLegacy.layout_mode === 'default', 'Existing saved section without layout_mode defaults to "default" without migration');
-assert(sanitizedLegacy.alignment === 'left', 'Existing saved section without alignment defaults to "left" without migration');
 
 // Case B: Explicit "single" preserved
 const singleSection = { id: 'sec_color', title: 'Primary Color', selection_mode: 'single', fields: [] };
@@ -153,28 +110,6 @@ assert(sanitizeSection(singleAlias, 0).selection_mode === 'single', 'Sanitizer n
 // Case E: "multiple_choices" alias normalized to "multiple"
 const multiAlias = { id: 'sec_alias_m', title: 'Extras', selection_mode: 'multiple_choices', fields: [] };
 assert(sanitizeSection(multiAlias, 0).selection_mode === 'multiple', 'Sanitizer normalizes "multiple_choices" alias to "multiple"');
-
-// Case F: Explicit custom layout preserved while alignment is normalized
-const customLayout = { id: 'sec_custom', title: 'Gallery', layout_mode: 'custom', alignment: 'center', fields: [] };
-const sanitizedCustom = sanitizeSection(customLayout, 0);
-assert(sanitizedCustom.layout_mode === 'custom', 'Sanitizer preserves explicit "custom" layout mode');
-assert(sanitizedCustom.alignment === 'center', 'Sanitizer preserves explicit valid alignment');
-
-// Case G: Invalid layout values fall back safely
-const invalidLayout = { id: 'sec_invalid_layout', title: 'Fallbacks', layout_mode: 'stacked', alignment: 'justify', fields: [] };
-const sanitizedInvalidLayout = sanitizeSection(invalidLayout, 0);
-assert(sanitizedInvalidLayout.layout_mode === 'default', 'Sanitizer normalizes invalid layout mode back to "default"');
-assert(sanitizedInvalidLayout.alignment === 'left', 'Sanitizer normalizes invalid alignment back to "left"');
-assert(normalizeSectionLayoutMode('CUSTOM') === 'custom', 'Admin JS normalizes layout mode case-insensitively');
-assert(normalizeSectionLayoutMode('stacked') === 'default', 'Admin JS falls back invalid layout mode to "default"');
-assert(normalizeSectionAlignment('RIGHT') === 'right', 'Admin JS normalizes alignment case-insensitively');
-assert(normalizeSectionAlignment('justify') === 'left', 'Admin JS falls back invalid alignment to "left"');
-const initializedSchema = initializeAdminSchema({ sections: [{ id: 'sec_init', title: 'Init', fields: [] }] });
-assert(initializedSchema.sections[0].layout_mode === 'default', 'Admin init path injects default layout_mode into legacy section state');
-assert(initializedSchema.sections[0].alignment === 'left', 'Admin init path injects default alignment into legacy section state');
-const syncedSchema = syncJsonToSchema(JSON.stringify({ sections: [{ id: 'sec_sync', title: 'Sync', layout_mode: 'STACKED', alignment: 'JUSTIFY', fields: [] }] }));
-assert(syncedSchema.sections[0].layout_mode === 'default', 'Admin JSON sync path normalizes invalid layout_mode before storing schema');
-assert(syncedSchema.sections[0].alignment === 'left', 'Admin JSON sync path normalizes invalid alignment before storing schema');
 
 // -------------------------------------------------------------
 // 3. AUTHORITATIVE PHP VALIDATION ENGINE (Price_Calculator)

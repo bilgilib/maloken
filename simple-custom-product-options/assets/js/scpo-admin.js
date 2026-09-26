@@ -232,6 +232,20 @@
 			return normalized;
 		}
 
+		function getAlignedRowSelf(alignment) {
+			if (alignment === 'center') return 'center';
+			if (alignment === 'right') return 'flex-end';
+			return 'flex-start';
+		}
+
+		function applyPreviewRowAlignment(row, fieldType, alignment, layoutMode) {
+			if (!row || layoutMode !== 'default') return;
+			if (['select', 'radio', 'checkbox', 'multiselect', 'imageselect'].indexOf(fieldType) === -1) return;
+			row.style.width = '100%';
+			row.style.maxWidth = '420px';
+			row.style.alignSelf = getAlignedRowSelf(alignment);
+		}
+
 		function findSection(secId) {
 			if (!schema || !schema.sections) return null;
 			return schema.sections.find(function(s) { return s.id === secId; });
@@ -1655,9 +1669,8 @@
 				fieldsWrap.className = 'scpo-section-fields scpo-section-layout-' + layoutMode + ' scpo-section-align-' + alignment;
 				fieldsWrap.setAttribute('data-layout-mode', layoutMode);
 				fieldsWrap.setAttribute('data-alignment', alignment);
-				if (layoutMode === 'default') {
-					fieldsWrap.style.textAlign = alignment;
-				}
+				fieldsWrap.style.display = 'flex';
+				fieldsWrap.style.flexDirection = 'column';
 				if (sec.title) {
 					var st = document.createElement('h4');
 					st.className = 'scpo-section-title';
@@ -1676,6 +1689,7 @@
 						var row = document.createElement('div');
 						row.className = 'scpo-field-row scpo-field-type-' + fld.type;
 						row.setAttribute('data-field-id', fld.id);
+						applyPreviewRowAlignment(row, fld.type, alignment, layoutMode);
 						if (fld.conditions) {
 							row.setAttribute('data-conditions', JSON.stringify(fld.conditions));
 						}
