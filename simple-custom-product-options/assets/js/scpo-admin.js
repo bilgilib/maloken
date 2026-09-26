@@ -237,6 +237,18 @@
 			return sec.fields.find(function(f) { return f.id === fldId; });
 		}
 
+		function updateSectionAndRefresh(secId, updater, rerenderBuilder) {
+			var sec = findSection(secId);
+			if (!sec || typeof updater !== 'function') return;
+			updater(sec);
+			isDirty = true;
+			syncSchemaToJson();
+			if (rerenderBuilder) {
+				renderBuilderCanvas();
+			}
+			renderLivePreview();
+		}
+
 		// 1. Tab Navigation
 		function switchTab(tab) {
 			var activeBtn = document.querySelector('.scpo-tab-btn.active');
@@ -354,6 +366,7 @@
 				var secMode = section.selection_mode || 'multiple';
 				var layoutMode = normalizeSectionLayoutMode(section.layout_mode);
 				var alignment = normalizeSectionAlignment(section.alignment);
+				var alignSelectId = 'scpo-sec-align-' + section.id;
 				secHeader.innerHTML =
 					'<div class="scpo-section-title-wrap">' +
 						'<span class="scpo-section-drag-handle" title="Drag to reorder section">☰</span>' +
@@ -362,8 +375,8 @@
 					'</div>' +
 					'<div class="scpo-section-actions">' +
 						(layoutMode === 'default'
-							? '<label style="font-size: 11px; margin-right: 2px; color: #50575e;">Align:</label>' +
-								'<select class="scpo-sec-align-select" title="Align section" style="font-size: 11px; height: 26px; padding: 0 4px; margin-right: 6px;">' +
+							? '<label for="' + escapeHtml(alignSelectId) + '" style="font-size: 11px; margin-right: 2px; color: #50575e;">Align:</label>' +
+								'<select id="' + escapeHtml(alignSelectId) + '" class="scpo-sec-align-select" title="Align section" style="font-size: 11px; height: 26px; padding: 0 4px; margin-right: 6px;">' +
 									'<option value="left"' + (alignment === 'left' ? ' selected' : '') + '>Left</option>' +
 									'<option value="center"' + (alignment === 'center' ? ' selected' : '') + '>Center</option>' +
 									'<option value="right"' + (alignment === 'right' ? ' selected' : '') + '>Right</option>' +
@@ -833,27 +846,18 @@
 				var secCardMode = e.target.closest('.scpo-section-card');
 				if (secCardMode) {
 					var secIdMode = secCardMode.getAttribute('data-sec-id');
-					var secModeObj = findSection(secIdMode);
-					if (secModeObj) {
+					updateSectionAndRefresh(secIdMode, function(secModeObj) {
 						secModeObj.selection_mode = e.target.value;
-						isDirty = true;
-						syncSchemaToJson();
-						renderLivePreview();
-					}
+					}, false);
 				}
 			}
 			if (e.target.classList && e.target.classList.contains('scpo-sec-align-select')) {
 				var secCardAlign = e.target.closest('.scpo-section-card');
 				if (secCardAlign) {
 					var secIdAlign = secCardAlign.getAttribute('data-sec-id');
-					var secAlignObj = findSection(secIdAlign);
-					if (secAlignObj) {
+					updateSectionAndRefresh(secIdAlign, function(secAlignObj) {
 						secAlignObj.alignment = normalizeSectionAlignment(e.target.value);
-						isDirty = true;
-						syncSchemaToJson();
-						renderBuilderCanvas();
-						renderLivePreview();
-					}
+					}, true);
 				}
 			}
 		});
@@ -1632,7 +1636,7 @@
 				var secMode = sec.selection_mode || 'multiple';
 				var layoutMode = normalizeSectionLayoutMode(sec.layout_mode);
 				var alignment = normalizeSectionAlignment(sec.alignment);
-				s.className = 'scpo-section scpo-section-mode-' + secMode;
+				s.className = 'scpo-section scpo-section-mode-' + secMode + ' scpo-section-layout-' + layoutMode + ' scpo-section-align-' + alignment;
 				s.setAttribute('data-selection-mode', secMode);
 				s.setAttribute('data-layout-mode', layoutMode);
 				s.setAttribute('data-alignment', alignment);

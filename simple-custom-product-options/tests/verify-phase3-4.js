@@ -98,6 +98,16 @@ function sanitizeSection(sec, idx) {
   };
 }
 
+function normalizeSectionLayoutMode(value) {
+  const normalized = value === null || value === undefined ? '' : String(value).toLowerCase();
+  return normalized === 'custom' ? 'custom' : 'default';
+}
+
+function normalizeSectionAlignment(value) {
+  const normalized = value === null || value === undefined ? '' : String(value).toLowerCase();
+  return ['left', 'center', 'right'].includes(normalized) ? normalized : 'left';
+}
+
 // Case A: Existing schema without selection_mode defaults to "multiple"
 const legacySection = { id: 'sec_legacy', title: 'Color Options', fields: [] };
 const sanitizedLegacy = sanitizeSection(legacySection, 0);
@@ -132,6 +142,10 @@ const invalidLayout = { id: 'sec_invalid_layout', title: 'Fallbacks', layout_mod
 const sanitizedInvalidLayout = sanitizeSection(invalidLayout, 0);
 assert(sanitizedInvalidLayout.layout_mode === 'default', 'Sanitizer normalizes invalid layout mode back to "default"');
 assert(sanitizedInvalidLayout.alignment === 'left', 'Sanitizer normalizes invalid alignment back to "left"');
+assert(normalizeSectionLayoutMode('CUSTOM') === 'custom', 'Admin JS normalizes layout mode case-insensitively');
+assert(normalizeSectionLayoutMode('stacked') === 'default', 'Admin JS falls back invalid layout mode to "default"');
+assert(normalizeSectionAlignment('RIGHT') === 'right', 'Admin JS normalizes alignment case-insensitively');
+assert(normalizeSectionAlignment('justify') === 'left', 'Admin JS falls back invalid alignment to "left"');
 
 // -------------------------------------------------------------
 // 3. AUTHORITATIVE PHP VALIDATION ENGINE (Price_Calculator)
